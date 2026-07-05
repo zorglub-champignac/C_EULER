@@ -61,7 +61,8 @@ int pin(int pi, int t[3]){
     int a=P[pi][0], b=P[pi][1];
     return (a==t[0]&&b==t[1])||(a==t[0]&&b==t[2])||(a==t[1]&&b==t[2]);
 }
-// #define DEBUG
+#define DEBUG
+int list_orb[56][MAXK][3];
 
 /* --- Construction des orbites et de leurs choix pour chaque sigma--- */
 void build(){
@@ -97,12 +98,14 @@ void build(){
             k++;
             int nxt[3]; appt(cur,nxt); memcpy(cur,nxt,sizeof(cur));
         }
+		memcpy(list_orb[norbs],orb,k*3*sizeof(orb[0]));
 #if defined DEBUG
 		printf("it=%d ",it);
 		for(int ik=0;ik<k;ik++) {
-			printf("(%d,%d,%d)",orb[ik][0],orb[ik][1],orb[ik][2]);
+//			printf("(%d,%d,%d)",orb[ik][0],orb[ik][1],orb[ik][2]);
+			printf("(%d,%d,%d)",list_orb[norbs][ik][0],list_orb[norbs][ik][1],list_orb[norbs][ik][2]);
 		}
-		printf("\n");
+		printf(" oksz[%d]=%d =>",norbs,k);
 #endif
 		// on stocke la longueur du cycle du triplet n° it
         oksz[norbs]=k;
@@ -122,16 +125,21 @@ void build(){
                 cp=appp(cp);
             }
             if(valid && cp==pi){ // paire valide qui boucle
+#if defined DEBUG
+            	printf("\n  P[ochoice[%d,%d,...]=",norbs,nc);
+#endif
                 for(int j=0;j<k;j++) {
 					ochoice[norbs][nc][j]=tmp[j];
 #if defined DEBUG
+					printf("{%d,%d} "
+						,P[ochoice[norbs][nc][j]][0],P[ochoice[norbs][nc][j]][1]);
 #endif
 				}
                 nc++;
             }
         }
 #if defined DEBUG
-		printf("it=%d => onc[%d]=%d \n",it,norbs,nc); fflush(stdout);
+		printf("\n"); fflush(stdout);
 #endif
         onc[norbs]=nc; // nombre de paires parmi 3 qui bouclent (si zéro triplet non valide pour sigma
         norbs++;
@@ -139,14 +147,14 @@ void build(){
 #if defined DEBUG
 	printf("Dump ochoice norbs=%d\n",norbs);
 	for (int inorbs=0;inorbs<norbs;inorbs++) {
-		printf("inorbs=%d ",inorbs);
+		printf("inorbs=%d (%d,%d,%d)=>",inorbs
+			,list_orb[inorbs][0][0],list_orb[inorbs][0][1],list_orb[inorbs][0][2]);
 		for (int inc=0;inc<onc[inorbs];inc++) {
-			printf("nc=%d {",inc);
-			for (int i=0;i<oksz[inorbs];i++) {
-				printf("%c%d",i==0 ?' ':',',ochoice[inorbs][inc][i]);
-			}
-			printf("}");
-		}
+			printf("{%d,%d} "
+							,P[ochoice[inorbs][inc][0]][0],P[ochoice[inorbs][inc][0]][1]);
+			//
+
+					}
 		printf("\n");
 	}
 	printf("\n");
@@ -268,7 +276,11 @@ int main(){
         "(3,3,2)","(4,2,2)","(4,3,1)","(4,4)",
         "(5,2,1)","(6,1,1)","(5,3)","(6,2)","(7,1)","(8,)"
     };
+#if defined DEBUG
+    for(int i=3;i<NB_PART;i++){
+#else
     for(int i=0;i<NB_PART;i++){
+#endif
         int s[8];
         mksig(types[i], npart[i], s); // on construit la permutation
 #if defined DEBUG
