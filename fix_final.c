@@ -14,7 +14,8 @@
    on choisit f(t0) = p, ce qui force f(sigma^j(t0)) = sigma^j(p).
    Chaque paire sigma^j(p) reçoit +1 dans cov[].
    Contrainte finale : cov[p] == 2 pour toute paire p.
-   ============================================================ */
+   ============================================================
+   */
 
 int sg[8];
 

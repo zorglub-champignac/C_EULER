@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
-
 /*
  * solve_final.c - Backtracking itératif EXACT de solve2.c
  * avec sauvegarde/reprise sur disque.

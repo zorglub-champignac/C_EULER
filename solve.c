@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
-
 // triplets et leurs 3 paires
 typedef struct {
 	int8_t coverage ;
