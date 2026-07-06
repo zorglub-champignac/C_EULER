@@ -85,7 +85,12 @@ void build(){
     norbs=0;
 	// int orb[56][MAXK][3];
 	for(int it = 0; it < 56; it ++) {
-		if(vis[it]) continue ;
+		if(vis[it]) {
+#if defined DEBUG
+			printf("it=%d (%d,%d,%d) norbs=0\n",it,Tr[it][0],Tr[it][1],Tr[it][2]);
+#endif
+			continue ;
+		}
         /* Construire l'orbite du triplet c-a-d la liste ses triplets sigma^k (Tr=cur)*/
         int orb[MAXK][3];
 		int k=0 ;
@@ -150,7 +155,8 @@ void build(){
 		printf("inorbs=%d (%d,%d,%d)=>",inorbs
 			,list_orb[inorbs][0][0],list_orb[inorbs][0][1],list_orb[inorbs][0][2]);
 		for (int inc=0;inc<onc[inorbs];inc++) {
-			printf("{%d,%d} "
+			printf("ochoice(%d,%d,0)=%d{%d,%d} "
+				,inorbs,inc,ochoice[inorbs][inc][0]
 							,P[ochoice[inorbs][inc][0]][0],P[ochoice[inorbs][inc][0]][1]);
 			//
 
@@ -169,7 +175,11 @@ int t2p[56] ;
 
 void bt(int idx){
 #if defined DEBUG
-	printf("\nbt_%d norbs=%d",idx,norbs);
+	printf("bt_%d ",idx);
+	for (int i=0;i<28;i++) {
+		printf("%2d ",cov[i]);
+	}
+	printf("\n");fflush(stdout);
 #endif
     if(idx==norbs){ // on a developpe toutes les orbites correspondant a sigma
         for(int p=0;p<28;p++) if(cov[p]!=2) return;
@@ -186,12 +196,17 @@ void bt(int idx){
         return;
     }
 #if defined DEBUG
-	printf("oksz[%d]=%d ",idx,oksz[idx]);
+//	printf("oksz[%d]=%d ",idx,oksz[idx]);
 #endif
     int k=oksz[idx]; // longueur de l'orbite
     for(int m=0;m<onc[idx];m++){
         /* Calcul du delta pour ce choix */
         int d[28]={0};
+    	int d0[28]={0} ;
+    	d0[ochoice[idx][m][0]]++ ;
+#if defined(DEBUG)
+    	printf("d0[ochoice[%d,%d,0]=%d]++=%d ",idx,m,ochoice[idx][m][0],d0[ochoice[idx][m][0]]);
+#endif
         for(int j=0;j<k;j++) {
 			d[ochoice[idx][m][j]]++ ;
 		}
@@ -206,17 +221,19 @@ void bt(int idx){
         for(int p=0;p<28;p++) {
 			cov[p]+=d[p];
 #if defined(DEBUG)
-			if(d[p]) {
+			if(d0[p]) {
 				t2p[idx] = p;
-				if(idx == 0) {
-					printf("t2p[%d]=%d ",idx,p); fflush(stdout);
+				//if(idx == 0)
+				{
+					printf("t2p[%d(%d,%d,%d)]=%d,{%d,%d}\n",idx
+						,Tr[idx][0],Tr[idx][1],Tr[idx][2],p,P[p][0],P[p][1]); fflush(stdout);
 				}
 			}
 #endif
 		}
         bt(idx+1);
 #if defined(DEBUG)
-		printf("rewind");
+//		printf("rewind");
 #endif
         for(int p=0;p<28;p++) cov[p]-=d[p];
     }
