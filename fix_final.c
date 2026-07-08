@@ -155,15 +155,19 @@ void build(){
 		printf("inorbs=%d (%d,%d,%d)=>",inorbs
 			,list_orb[inorbs][0][0],list_orb[inorbs][0][1],list_orb[inorbs][0][2]);
 		for (int inc=0;inc<onc[inorbs];inc++) {
-			printf("ochoice(%d,%d,0)=%d{%d,%d} "
-				,inorbs,inc,ochoice[inorbs][inc][0]
-							,P[ochoice[inorbs][inc][0]][0],P[ochoice[inorbs][inc][0]][1]);
+			printf("ochoice(%d,%d,...)=",inorbs,inc);
+			for (int oj=0;oj<oksz[inorbs];oj++) {
+				printf("%d{%d,%d},"
+					,ochoice[inorbs][inc][oj]
+								,P[ochoice[inorbs][inc][oj]][0],P[ochoice[inorbs][inc][oj]][1]);
+
+			}
 			//
 
 					}
-		printf("\n");
+		printf("\n"); fflush(stdout);
 	}
-	printf("\n");
+	printf("\n");fflush(stdout);
 #endif
 }
 
@@ -175,7 +179,7 @@ int t2p[56] ;
 
 void bt(int idx){
 #if defined DEBUG
-	printf("bt_%d ",idx);
+	printf("bt_%d(%d,%d,%d) ",idx,Tr[idx][0],Tr[idx][1],Tr[idx][2]);
 	for (int i=0;i<28;i++) {
 		printf("%2d ",cov[i]);
 	}
@@ -190,7 +194,6 @@ void bt(int idx){
 			}
 			printf("\n");
 		}
-		exit(0) ;
 #endif
         cnt++;
         return;
@@ -202,14 +205,13 @@ void bt(int idx){
     for(int m=0;m<onc[idx];m++){
         /* Calcul du delta pour ce choix */
         int d[28]={0};
-    	int d0[28]={0} ;
-    	d0[ochoice[idx][m][0]]++ ;
-#if defined(DEBUG)
-    	printf("d0[ochoice[%d,%d,0]=%d]++=%d ",idx,m,ochoice[idx][m][0],d0[ochoice[idx][m][0]]);
-#endif
         for(int j=0;j<k;j++) {
+#if defined(DEBUG)
+        	printf("++d[%d,%d,%d]=%d ",idx,m,j,ochoice[idx][m][j]);
+#endif
 			d[ochoice[idx][m][j]]++ ;
 		}
+    	fflush(stdout);
         /* Vérification : ne pas dépasser 2 */
         int ok=1;
         for(int p=0;p<28 && ok ;p++) {
@@ -220,20 +222,10 @@ void bt(int idx){
 
         for(int p=0;p<28;p++) {
 			cov[p]+=d[p];
-#if defined(DEBUG)
-			if(d0[p]) {
-				t2p[idx] = p;
-				//if(idx == 0)
-				{
-					printf("t2p[%d(%d,%d,%d)]=%d,{%d,%d}\n",idx
-						,Tr[idx][0],Tr[idx][1],Tr[idx][2],p,P[p][0],P[p][1]); fflush(stdout);
-				}
-			}
-#endif
 		}
         bt(idx+1);
 #if defined(DEBUG)
-//		printf("rewind");
+		printf("rewind");
 #endif
         for(int p=0;p<28;p++) cov[p]-=d[p];
     }
@@ -294,7 +286,7 @@ int main(){
         "(5,2,1)","(6,1,1)","(5,3)","(6,2)","(7,1)","(8,)"
     };
 #if defined DEBUG
-    for(int i=3;i<NB_PART;i++){
+    for(int i=NB_PART-1;i<NB_PART;i++){
 #else
     for(int i=0;i<NB_PART;i++){
 #endif
