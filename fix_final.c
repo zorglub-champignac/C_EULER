@@ -18,11 +18,20 @@
    */
 
 int sg[8];
-
+typedef struct Pair {
+	int p0 ;
+	int p1 ;
+} Pair ;
 /* Paires et triplets */
-int P[28][2]; // liste des paires
+struct Pair P[28] ;
 int pidx[8][8]; // numero ds la liste d'une paire
-int Tr[56][3]; // liste des triplets
+typedef struct Triplet {
+	int t0;
+	int t1;
+	int t2;
+} triplet ;
+// int Tr[56][3]; // liste des triplets
+triplet Tr[56] ;
 int tidx[8][8][8]; // numero ds la liste d'un triplet
 
 // #define Ident
@@ -45,21 +54,28 @@ long long cnt;
 
 /* --- Fonctions de base --- */
 // remet dans l'ordre alpha un triplet issu de l'application de la permutation sigma (sg)
-void appt(int in[3], int out[3]){
-    int a=sg[in[0]], b=sg[in[1]], c=sg[in[2]];
+void appt(triplet *in, triplet *out){
+    int a=sg[in->t0], b=sg[in->t1], c=sg[in->t2];
     if(a>b){int t=a;a=b;b=t;} if(b>c){int t=b;b=c;c=t;} if(a>b){int t=a;a=b;b=t;}
-    out[0]=a; out[1]=b; out[2]=c;
+    out->t0=a; out->t1=b; out->t2=c;
+}
+int get_npi(Pair pi) {
+	return  pidx[pi.p0][pi.p1];
 }
 // remet dans l'ordre alpha une paire issue de l'application de la permutation sigma (sg)
 // et retourne le numero de la paire (parmi 28)
 int appp(int pi){
-    int a=sg[P[pi][0]], b=sg[P[pi][1]];
-    if(a>b){int t=a;a=b;b=t;} return pidx[a][b];
+    int a=sg[P[pi].p0], b=sg[P[pi].p1];
+    if(a>b) {
+	    int t=a;a=b;b=t;
+    }
+	Pair sgP = {a,b} ;
+	return get_npi(sgP);
 }
 // retourne True si pi, la paire d'indice i, fait partie du triplet t[3]
-int pin(int pi, int t[3]){
-    int a=P[pi][0], b=P[pi][1];
-    return (a==t[0]&&b==t[1])||(a==t[0]&&b==t[2])||(a==t[1]&&b==t[2]);
+int pin(int pi, triplet trp){
+    int a=P[pi].p0, b=P[pi].p1;
+    return (a==trp.t0&&b==trp.t1)||(a==trp.t0&&b==trp.t2)||(a==trp.t1&&b==trp.t2);
 }
 #define DEBUG
 int list_orb[56][MAXK][3];
@@ -76,14 +92,14 @@ void build(){
     memset(pidx, 0, sizeof(pidx));
     for(int i=0;i<8;i++) {
 		for(int j=i+1;j<8;j++){
-			P[np][0]=i; P[np][1]=j; pidx[i][j]=np++;
+			P[np].p0=i; P[np].p1=j; pidx[i][j]=np++;
 		}
 	}
     int nt=0;
     for(int a=0;a<8;a++) {
 		for(int b=a+1;b<8;b++) {
 			for(int c=b+1;c<8;c++){
-				Tr[nt][0]=a; Tr[nt][1]=b; Tr[nt][2]=c; tidx[a][b][c]=nt++;
+				Tr[nt].t0=a; Tr[nt].t1=b; Tr[nt].t2=c; tidx[a][b][c]=nt++;
 			}
 		}
 	}
@@ -93,21 +109,22 @@ void build(){
 	for(int it = 0; it < 56; it ++) {
 		if(vis[it]) {
 #if defined DEBUG
-			printf("it=%d (%d,%d,%d) norbs=0\n",it,Tr[it][0],Tr[it][1],Tr[it][2]);
+			printf("it=%d (%d,%d,%d) norbs=0\n",it,Tr[it].t0,Tr[it].t1,Tr[it].t2);
 #endif
 			continue ;
 		}
         /* Construire l'orbite du triplet c-a-d la liste ses triplets sigma^k (Tr=cur)*/
-        int orb[MAXK][3];
+        triplet orb[MAXK];
 		int k=0 ;
-		int cur[3]={Tr[it][0],Tr[it][1],Tr[it][2]};
+		//int cur[3]={Tr[it][0],Tr[it][1],Tr[it][2]};
+		triplet	curT = Tr[it] ;
 		// calcul du cycle par zima du tripet n° i
-        while(!vis[tidx[cur[0]][cur[1]][cur[2]]]){
-            int idx=tidx[cur[0]][cur[1]][cur[2]];
+        while(!vis[tidx[curT.t0][curT.t1][curT.t2]]){
+            int idx=tidx[curT.t0][curT.t1][curT.t2];
             vis[idx]=1;
-            memcpy(orb[k], cur,sizeof(cur));
+            orb[k] =  curT;;
             k++;
-            int nxt[3]; appt(cur,nxt); memcpy(cur,nxt,sizeof(cur));
+            triplet nxtT; appt(&curT,&nxtT);curT = nxtT ;
         }
 		memcpy(list_orb[norbs],orb,k*3*sizeof(orb[0]));
 #if defined DEBUG
@@ -121,11 +138,11 @@ void build(){
 		// on stocke la longueur du cycle du triplet n° it
         oksz[norbs]=k;
         /* Choix valides : paires p de orb[0] tq sigma^j(p) dans orb[j] */
-        int t0[3]; memcpy(t0, orb[0], 12);
-        int ps[3][2]={{t0[0],t0[1]},{t0[0],t0[2]},{t0[1],t0[2]}};
+        triplet T0 = orb[0];
+		struct Pair ps[3] ={{T0.t0,T0.t1},{T0.t0,T0.t2},{T0.t1,T0.t2}};
         int nc=0;
         for(int m=0;m<3;m++){ // boucle sur les 3 paires associees au triplet n° it
-            int pi=pidx[ps[m][0]][ps[m][1]]; // n° de la paire
+            int pi=pidx[ps[m].p0][ps[m].p1]; // n° de la paire
             int cp=pi, valid=1, tmp[MAXK];
 			tmp[0] = cp ; cp = appp(cp); // cas j=0, on sait que la paire est ds le triplet.
             for(int j=1;j<k;j++){ // on teste que sigma^j[ pi ] est dans orb[j]
@@ -143,7 +160,7 @@ void build(){
 					ochoice[norbs][nc][j]=tmp[j];
 #if defined DEBUG
 					printf("{%d,%d} "
-						,P[ochoice[norbs][nc][j]][0],P[ochoice[norbs][nc][j]][1]);
+						,P[ochoice[norbs][nc][j]].p0,P[ochoice[norbs][nc][j]].p1);
 #endif
 				}
                 nc++;
@@ -165,7 +182,7 @@ void build(){
 			for (int oj=0;oj<oksz[inorbs];oj++) {
 				printf("%d{%d,%d},"
 					,ochoice[inorbs][inc][oj]
-								,P[ochoice[inorbs][inc][oj]][0],P[ochoice[inorbs][inc][oj]][1]);
+								,P[ochoice[inorbs][inc][oj]].p0,P[ochoice[inorbs][inc][oj]].p1);
 
 			}
 			//
@@ -202,11 +219,11 @@ void bt(int idx){
 			for(int i=0;i<56;i++) {
 				if (t2p[i] != ant_t2p[i]) {
 					if (ant_t2p[i] >= 0) {
-						printf("{%d,%d,%d}:(%d,%d)->(%d,%d)\n",Tr[i][0],Tr[i][1],Tr[i][2]
-							,P[ant_t2p[i]][0],P[ant_t2p[i]][1],P[t2p[i]][0],P[t2p[i]][1]);
+						printf("{%d,%d,%d}:(%d,%d)->(%d,%d)\n",Tr[i].t0,Tr[i].t1,Tr[i].t2
+							,P[ant_t2p[i]].p0,P[ant_t2p[i]].p1,P[t2p[i]].p0,P[t2p[i]].p1);
 					} else {
-						printf("{%d,%d,%d}->(%d,%d) ",Tr[i][0],Tr[i][1],Tr[i][2]
-							,P[t2p[i]][0],P[t2p[i]][1]);
+						printf("{%d,%d,%d}->(%d,%d) ",Tr[i].t0,Tr[i].t1,Tr[i].t2
+							,P[t2p[i]].p0,P[t2p[i]].p1);
 
 					}
 				}
