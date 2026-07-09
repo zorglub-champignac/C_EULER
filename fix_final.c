@@ -190,7 +190,7 @@ void bt(int idx){
 #if defined DEBUG
 		{
 			for(int i=0;i<56;i++) {
-				printf("{%d,%d,%d}-[%d](%d,%d) ",Tr[i][0],Tr[i][1],Tr[i][2],t2p[i],P[t2p[i]][0],P[t2p[i]][1]);
+				printf("t2p[%d]=%d|{%d,%d,%d}-(%d,%d) ",i,t2p[i],Tr[i][0],Tr[i][1],Tr[i][2],P[t2p[i]][0],P[t2p[i]][1]);
 			}
 			printf("\n");
 		}
@@ -210,6 +210,11 @@ void bt(int idx){
         	printf("++d[%d,%d,%d]=%d ",idx,m,j,ochoice[idx][m][j]);
 #endif
 			d[ochoice[idx][m][j]]++ ;
+        	int nT = tidx[list_orb[idx][j][0]][list_orb[idx][j][1]][list_orb[idx][j][02]];
+        	t2p[nT]=ochoice[idx][m][j] ;
+        	printf("t2p[%d]=%d|(%d,%d,%d)]=(%d,%d) "
+        	,nT,ochoice[idx][m][j],Tr[nT][0],Tr[nT][1],Tr[nT][2]
+        	,P[ochoice[idx][m][j]][0],P[ochoice[idx][m][j]][1]);
 		}
     	fflush(stdout);
         /* Vérification : ne pas dépasser 2 */
