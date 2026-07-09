@@ -64,7 +64,13 @@ int pin(int pi, int t[3]){
 #define DEBUG
 int list_orb[56][MAXK][3];
 
+#if defined DEBUG
+int t2p[56] ;
+int ant_t2p[56] = {-1} ;
+#endif
+
 /* --- Construction des orbites et de leurs choix pour chaque sigma--- */
+
 void build(){
     int np=0;
     memset(pidx, 0, sizeof(pidx));
@@ -168,34 +174,50 @@ void build(){
 		printf("\n"); fflush(stdout);
 	}
 	printf("\n");fflush(stdout);
+	for (int i=0;i<56;i++) {
+		ant_t2p[i]= -1 ;
+	}
+
 #endif
 }
 
 /* --- Backtracking SANS élagage (version sûre) --- */
 // developpement recursif
-#if defined DEBUG
-int t2p[56] ;
-#endif
 
 void bt(int idx){
-#if defined DEBUG
+/*
+ *#if defined DEBUG
 	printf("bt_%d(%d,%d,%d) ",idx,Tr[idx][0],Tr[idx][1],Tr[idx][2]);
 	for (int i=0;i<28;i++) {
 		printf("%2d ",cov[i]);
 	}
 	printf("\n");fflush(stdout);
 #endif
+*/
     if(idx==norbs){ // on a developpe toutes les orbites correspondant a sigma
         for(int p=0;p<28;p++) if(cov[p]!=2) return;
 #if defined DEBUG
 		{
+        	printf("\nSol %d;\n",cnt);
 			for(int i=0;i<56;i++) {
-				printf("t2p[%d]=%d|{%d,%d,%d}-(%d,%d) ",i,t2p[i],Tr[i][0],Tr[i][1],Tr[i][2],P[t2p[i]][0],P[t2p[i]][1]);
+				if (t2p[i] != ant_t2p[i]) {
+					if (ant_t2p[i] >= 0) {
+						printf("{%d,%d,%d}:(%d,%d)->(%d,%d)\n",Tr[i][0],Tr[i][1],Tr[i][2]
+							,P[ant_t2p[i]][0],P[ant_t2p[i]][1],P[t2p[i]][0],P[t2p[i]][1]);
+					} else {
+						printf("{%d,%d,%d}->(%d,%d) ",Tr[i][0],Tr[i][1],Tr[i][2]
+							,P[t2p[i]][0],P[t2p[i]][1]);
+
+					}
+				}
 			}
-			printf("\n");
+        	if (ant_t2p[0] < 0) {
+        		printf("\n");
+        	}
 		}
 #endif
         cnt++;
+    	memcpy(ant_t2p,t2p,sizeof(t2p));
         return;
     }
 #if defined DEBUG
@@ -206,17 +228,21 @@ void bt(int idx){
         /* Calcul du delta pour ce choix */
         int d[28]={0};
         for(int j=0;j<k;j++) {
+        	/*
 #if defined(DEBUG)
         	printf("++d[%d,%d,%d]=%d ",idx,m,j,ochoice[idx][m][j]);
 #endif
+*/
 			d[ochoice[idx][m][j]]++ ;
         	int nT = tidx[list_orb[idx][j][0]][list_orb[idx][j][1]][list_orb[idx][j][02]];
         	t2p[nT]=ochoice[idx][m][j] ;
+        	/*
         	printf("t2p[%d]=%d|(%d,%d,%d)]=(%d,%d) "
         	,nT,ochoice[idx][m][j],Tr[nT][0],Tr[nT][1],Tr[nT][2]
         	,P[ochoice[idx][m][j]][0],P[ochoice[idx][m][j]][1]);
+        	*/
 		}
-    	fflush(stdout);
+    	// fflush(stdout);
         /* Vérification : ne pas dépasser 2 */
         int ok=1;
         for(int p=0;p<28 && ok ;p++) {
@@ -229,9 +255,11 @@ void bt(int idx){
 			cov[p]+=d[p];
 		}
         bt(idx+1);
-#if defined(DEBUG)
+/*
+ *#if defined(DEBUG)
 		printf("rewind");
 #endif
+*/
         for(int p=0;p<28;p++) cov[p]-=d[p];
     }
 }
@@ -291,7 +319,7 @@ int main(){
         "(5,2,1)","(6,1,1)","(5,3)","(6,2)","(7,1)","(8,)"
     };
 #if defined DEBUG
-    for(int i=NB_PART-1;i<NB_PART;i++){
+    for(int i=NB_PART-2;i<NB_PART;i++){
 #else
     for(int i=0;i<NB_PART;i++){
 #endif
