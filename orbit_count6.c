@@ -1,6 +1,7 @@
 /*
  * orbit_count6.c
  *
+ *
  * Meme methode que orbit_count.c, avec des groupes plus gros :
  *
  * Etage 1 : W1 = les 20 triplets de {0,...,5}, groupe G1 = S6 (720 perms,
