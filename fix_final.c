@@ -81,7 +81,7 @@ int pin(int8_t pi, int8_t nt){
     int8_t a=P[pi].p0, b=P[pi].p1;
     return (a==Tr[nt].t0 && b==Tr[nt].t1)||(a==Tr[nt].t0&&b==Tr[nt].t2)||(a==Tr[nt].t1&&b==Tr[nt].t2);
 }
-//#define DEBUG
+#define DEBUG
 int8_t list_orb[56][MAXK];
 
 int8_t t2p[56] ;
@@ -111,7 +111,7 @@ void build(){
 	for(int8_t it = 0; it < 56; it ++) {
 		if(vis[it]) {
 #if defined DEBUG
-			printf("it=%d (%d,%d,%d) norbs=0\n",it,Tr[it].t0,Tr[it].t1,Tr[it].t2);
+			// printf("it=%d (%d,%d,%d) norbs=0\n",it,Tr[it].t0,Tr[it].t1,Tr[it].t2);
 #endif
 			continue ;
 		}
@@ -130,11 +130,13 @@ void build(){
         }
 		memcpy(list_orb[norbs],orb,k*3*sizeof(orb[0]));
 #if defined DEBUG
-		printf("it=%d ",it);
-		for(int ik=0;ik<k;ik++) {
-			printf("(%d,%d,%d)",Tr[list_orb[norbs][ik]].t0,Tr[list_orb[norbs][ik]].t1,Tr[list_orb[norbs][ik]].t2);
+		if (k > 0 ) {
+			printf("it=%d ",it);
+			for(int ik=0;ik<k;ik++) {
+				printf("(%d,%d,%d)",Tr[list_orb[norbs][ik]].t0,Tr[list_orb[norbs][ik]].t1,Tr[list_orb[norbs][ik]].t2);
+			}
+			printf(" oksz[%d]=%d =>",norbs,k);
 		}
-		printf(" oksz[%d]=%d =>",norbs,k);
 #endif
 		// on stocke la longueur du cycle du triplet n° it
         oksz[norbs]=k;
@@ -214,7 +216,7 @@ void bt(int idx){
 */
     if(idx==norbs){ // on a developpe toutes les orbites correspondant a sigma
         for(int8_t p=0;p<28;p++) if(cov[p]!=2) return;
-/*
+
 #if defined DEBUG
 		{
         	printf("\nSol %lld;\n",cnt);
@@ -235,7 +237,7 @@ void bt(int idx){
         	}
 		}
 #endif
-*/
+
         cnt++;
     	memcpy(ant_t2p,t2p,sizeof(t2p));
         return;

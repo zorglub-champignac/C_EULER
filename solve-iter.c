@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
-
 /*
  * solve_final.c - Backtracking itératif EXACT de solve2.c
  * avec sauvegarde/reprise sur disque.
@@ -53,30 +52,35 @@ Frame     S[MAXD];
 int       top;
 int       cov[28], rem[28];
 long long cnt;
+long long nodes   = 0;
+int bestUp = 0 ;
 
 /* --- Sauvegarde / chargement --- */
 #define SAVEFILE "solve_state.bin"
 #define MAGIC    0xF1A17E54UL
-
+#define MAGIC2    0xF3A37F53UL
+char *  load_name = SAVEFILE ;
 void save_state() {
-    FILE *f = fopen(SAVEFILE,"wb");
+    FILE *f = fopen(load_name,"wb");
     if(!f) { perror("save"); return; }
-    unsigned long m = MAGIC;
+    unsigned long m = MAGIC2;
     fwrite(&m,   sizeof m,          1, f);
     fwrite(&cnt, sizeof cnt,        1, f);
     fwrite(&top, sizeof top,        1, f);
     fwrite(cov,  sizeof cov,        1, f);
     fwrite(rem,  sizeof rem,        1, f);
     fwrite(S,    sizeof(Frame), top+1, f);
+	fwrite(&bestUp,sizeof(bestUp),   1, f);
+	fwrite(&nodes,sizeof(nodes),	1, f);
     fclose(f);
-    fprintf(stderr,"[saved]  top=%d  count=%lld\n", top, cnt);
+    //fprintf(stderr,"[saved]  top=%d  count=%lld\n", top, cnt);
 }
 
 int load_state() {
-    FILE *f = fopen(SAVEFILE,"rb");
+    FILE *f = fopen(load_name,"rb");
     if(!f) return 0;
     unsigned long m;
-    if(fread(&m,sizeof m,1,f)<1 || m!=MAGIC) {
+    if(fread(&m,sizeof m,1,f)<1 || m!=MAGIC2) {
         fprintf(stderr,"Sauvegarde invalide.\n"); fclose(f); return 0;
     }
     fread(&cnt, sizeof cnt,        1, f);
@@ -84,25 +88,42 @@ int load_state() {
     fread(cov,  sizeof cov,        1, f);
     fread(rem,  sizeof rem,        1, f);
     fread(S,    sizeof(Frame), top+1, f);
+	fread(&bestUp,sizeof(bestUp), 1,f);
+	fread(&nodes,sizeof(nodes),	1, f);
     fclose(f);
     fprintf(stderr,"[loaded] top=%d  count=%lld\n", top, cnt);
+	cnt--;
+	// nodes ;
     return 1;
 }
 
 volatile int interrupted = 0;
 void on_sig(int s) { (void)s; interrupted = 1; }
 
-void run(long long save_every) {
-    long long nodes   = 0;
-    long long next_sv = save_every;
+void run(long long next_sv,long long save_every) {
+
     time_t    t0      = time(NULL);
 
     for(;;) {
         Frame *f = &S[top];
+		if(f->ti < bestUp) {
+			clock_t end = clock();
+			printf("BestUp=%d count=%lld in %llds\n",bestUp,cnt,(long long)(time(NULL)-t0));
+			fflush(stdout);
+			bestUp = f->ti ;
+		}
 
         /* Feuille */
         if(f->ti == 56) {
+			if (cnt == 0) bestUp = 56 ;
             cnt++;
+			if(cnt >= next_sv) {
+                        fprintf(stderr,"[%llds] nodes=%lld  count=%lld  depth=%d\n",
+                                (long long)(time(NULL)-t0), nodes, cnt, top);
+                        save_state();
+                        next_sv += save_every;
+            }
+
             if(top==0) break;
             top--;
             if(S[top].chosen>=0) { cov[S[top].chosen]--; S[top].chosen=-1; }
@@ -121,25 +142,42 @@ void run(long long save_every) {
 
         /* PC=1,2,3 : tenter k=pc-1 */
         if(f->pc <= 3) {
-            int k=f->pc-1, pi=tp[ti][k];
-            if(cov[pi] < 2) {
-                cov[pi]++;
-                if(feasible(cov,rem)) {
-                    f->chosen = pi;
-                    top++;
-                    S[top] = (Frame){ ti+1, 0, -1 };
-                    nodes++;
-                    if(nodes >= next_sv) {
-                        fprintf(stderr,"[%llds] nodes=%lld  count=%lld  depth=%d\n",
-                                (long long)(time(NULL)-t0), nodes, cnt, top);
-                        save_state();
-                        next_sv += save_every;
-                    }
-                    if(interrupted) { save_state(); return; }
-                    continue;
-                }
-                cov[pi]--;
-            }
+            //int k=f->pc-1 ; // , pi=tp[ti][k];
+ 			switch(f->pc) {
+				case 1:
+    				if ((cov[p0] < 2) &&(rem[p1]+cov[p1] >= 2) && (rem[p2]+cov[p2] >= 2)) {
+						f->chosen = p0;
+						cov[p0]++ ;
+						top++;
+						S[top] = (Frame){ ti+1, 0, -1 };
+						nodes++;
+						if(interrupted) { save_state(); return; }
+						continue;
+					}
+					break ;
+				case 2:
+					if ((cov[p1] < 2) && (rem[p0]+cov[p0] >= 2) && (rem[p2]+cov[p2] >= 2)) {
+						f->chosen = p1;
+						cov[p1]++ ;
+						top++;
+						S[top] = (Frame){ ti+1, 0, -1 };
+						nodes++;
+						if(interrupted) { save_state(); return; }
+						continue;
+					}
+					break ;
+				case 3:
+					if ((cov[p2] < 2) && (rem[p0]+cov[p0] >= 2) && (rem[p1]+cov[p1] >= 2)) {
+						f->chosen = p2;
+						cov[p2]++ ;
+						top++;
+						S[top] = (Frame){ ti+1, 0, -1 };
+						nodes++;
+						if(interrupted) { save_state(); return; }
+						continue;
+					}
+					break ;
+            } // end switch
             f->pc++;
             continue;
         }
@@ -161,6 +199,8 @@ int main(int argc, char **argv) {
     signal(SIGINT, on_sig);
     long long save_every = 100000000LL;
     if(argc >= 2) save_every = atoll(argv[1]);
+	if(argc >= 3) load_name = argv[2] ;
+	long long next_sv = save_every ;
 
     if(!load_state()) {
         memset(cov, 0, sizeof cov);
@@ -169,7 +209,11 @@ int main(int argc, char **argv) {
         S[0]   = (Frame){ 0, 0, -1 };
         cnt    = 0;
         fprintf(stderr,"Démarrage from scratch.\n");
-    }
-    run(save_every);
+	}
+	if (cnt != 0) {
+		fprintf(stderr,"Démarrage from count=%lld.\n",cnt);
+		next_sv = cnt + save_every - (cnt % save_every) ;
+	}
+    run(next_sv,save_every);
     return 0;
 }
