@@ -81,7 +81,7 @@ int pin(int8_t pi, int8_t nt){
     int8_t a=P[pi].p0, b=P[pi].p1;
     return (a==Tr[nt].t0 && b==Tr[nt].t1)||(a==Tr[nt].t0&&b==Tr[nt].t2)||(a==Tr[nt].t1&&b==Tr[nt].t2);
 }
-#define DEBUG
+// #define DEBUG
 int8_t list_orb[56][MAXK];
 
 int8_t t2p[56] ;
