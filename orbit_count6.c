@@ -119,7 +119,7 @@ static int gen_group(int lo, int m, int perms[][8])
 typedef struct {
     uint8_t choice[MAXT];
     int16_t weight;
-} Rep;
+} Leaf;
 
 typedef struct {
     int32_t recip[MAXT] ;
@@ -131,7 +131,7 @@ typedef struct {
     Perm Pe[720] ;
     int cov[nbPairs];                        // couverture des paires
     uint8_t curChoice[MAXT];             // choix pour chaque triplet (a,b,c) de la paire associée (0 = (a,b) , 1=(a,c) 2=(b,c)
-    Rep *reps; long nreps, cap;
+    Leaf *leafs; long nleaf, cap;
     long wAssign;                       // poids total du developpement
     int killer;
 } Stage;
@@ -163,13 +163,13 @@ static void stage_leaf(Stage *S)
         if (!greater) stab++;           /* image identique : stabilisateur */
     }
     /* canonique */
-    if (S->nreps == S->cap) {
+    if (S->nleaf == S->cap) {
         S->cap = S->cap ? S->cap * 2 : 1024;
-        S->reps = (Rep *)realloc(S->reps, (size_t)S->cap * sizeof(Rep));
-        if (!S->reps) { fprintf(stderr, "memoire insuffisante\n"); exit(1); }
+        S->leafs = (Leaf *)realloc(S->leafs, (size_t)S->cap * sizeof(Leaf));
+        if (!S->leafs) { fprintf(stderr, "memoire insuffisante\n"); exit(1); }
     }
     {
-        Rep *r = &S->reps[S->nreps++];
+        Leaf *r = &S->leafs[S->nleaf++];
         memcpy(r->choice, curChoice, nT);
         r->weight = (short)(S->nbPerm / stab);
     }
@@ -238,7 +238,7 @@ void stage_phase1(Stage *S) {
     stage_dfs(S, 0);
     {
         long sw = 0;
-        for (long q = 0; q < S->nreps; q++) sw += S->reps[q].weight;
+        for (long q = 0; q < S->nleaf; q++) sw += S->leafs[q].weight;
         if (sw != S->wAssign) {
             fprintf(stderr, "ERREUR: somme des poids %ld != %ld affectations\n", sw, S->wAssign);
             exit(1);
@@ -252,7 +252,7 @@ void stage_phase1(Stage *S) {
 
 
 
-static const Stage * build_ST1(void) {
+static Stage * build_ST1(void) {
     static int perms1[720][8] ; // liste des 720 permutations de 012345 67  (67 invariant)
     static int  W1[20] ; // liste des 20 triplets de [0,6[
     // 012 013 014 015 023 024 025 034 035 045 123 124 125 134 135 145 234 235 245 345
@@ -269,7 +269,7 @@ static const Stage * build_ST1(void) {
     return ST1;
 }
 
-static const Stage * build_ST2(void) {
+static Stage * build_ST2(void) {
     static int  W2[6] ; // liste des 6 triplets 067 167 267 367 467 567
     static int perms2[2][8];  // liste des 2 permutations 01234567 01234576
     for (int a = 0; a < 6; a++) W2[a] = tidx[a][6][7]; // 067
@@ -340,13 +340,13 @@ static u64 run_job(long id,typeRemCov rem0[nbPairs],const Stage *ST1,const Stage
     }
     typeRemCov base[nbPairs];
     u64 T = 0;
-    const Rep *r1 = &ST1->reps[id];
+    const Leaf *r1 = &ST1->leafs[id];
     const int * W1 = ST1->W;
     const int * W2 = ST2->W;
     memset(base, 0, sizeof(base));
     for (int i = 0; i < 20; i++) base[tp[W1[i]][r1->choice[i]]]++;
-    for (int q = 0; q < ST2->nreps; q++) {
-        const Rep *r2 = &ST2->reps[q];
+    for (int q = 0; q < ST2->nleaf; q++) {
+        const Leaf *r2 = &ST2->leafs[q];
         int ok = 1;
         memcpy(BT->cov, base, sizeof(base));
         for (int i = 0; i < 6; i++) BT->cov[tp[W2[i]][r2->choice[i]]]++;
@@ -365,16 +365,16 @@ static u64 run_job(long id,typeRemCov rem0[nbPairs],const Stage *ST1,const Stage
 static void print_info(const Stage *ST1,const Stage *ST2)
 {
     long  tw1 = 0, tw2 = 0, full = 0;
-    for (long i = 0; i < ST1->nreps; i++) { tw1 += ST1->reps[i].weight; if (ST1->reps[i].weight == 720) full++; }
-    for (long i = 0; i < ST2->nreps; i++) tw2 += ST2->reps[i].weight;
+    for (long i = 0; i < ST1->nleaf; i++) { tw1 += ST1->leafs[i].weight; if (ST1->leafs[i].weight == 720) full++; }
+    for (long i = 0; i < ST2->nleaf; i++) tw2 += ST2->leafs[i].weight;
     printf("Etage 1 : %ld affectations faisables de W1 (20 triplets), %ld orbites sous S6 "
-           "(somme poids = %ld, orbites pleines de 720 : %ld)\n", ST1->wAssign, ST1->nreps, tw1, full);
+           "(somme poids = %ld, orbites pleines de 720 : %ld)\n", ST1->wAssign, ST1->nleaf, tw1, full);
     printf("Etage 2 : %ld affectations faisables de W2 (6 triplets), %ld orbites sous S2 "
-           "(somme poids = %ld)\n", ST2->wAssign, ST2->nreps, tw2);
+           "(somme poids = %ld)\n", ST2->wAssign, ST2->nleaf, tw2);
     printf("Nombre de jobs (representants de l'etage 1) = %ld ; sous-comptages par job = %ld\n",
-           ST1->nreps, ST2->nreps);
+           ST1->nleaf, ST2->nleaf);
     printf("Gain nominal sur les configurations de depart : %.1f\n",
-           (double)ST1->wAssign * ST2->wAssign / ((double)ST1->nreps * ST2->nreps));
+           (double)ST1->wAssign * ST2->wAssign / ((double)ST1->nleaf * ST2->nleaf));
     printf("Triplets restants a parcourir : %d\n", nbRemT);
 }
 
@@ -399,7 +399,7 @@ int main(int argc, char **argv)
         for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
     }
 
-    long J = ST1->nreps;
+    long J = ST1->nleaf;
     fprintf(stderr, "[orbites construites en %.1f s]\n", (double)(clock() - c0) / CLOCKS_PER_SEC);
 
     if (argc >= 2 && strcmp(argv[1], "--info") == 0) { print_info(ST1,ST2); return 0; }
@@ -411,7 +411,7 @@ int main(int argc, char **argv)
         double sumT = 0.0;
         for (int i = 0; i < K; i++) {
             long id = (long)i * step + step / 2;
-            sumT += (double)ST1->reps[id].weight * (double)run_job(id,rem0,ST1,ST2);
+            sumT += (double)ST1->leafs[id].weight * (double)run_job(id,rem0,ST1,ST2);
         }
         double dt = (double)clock() / CLOCKS_PER_SEC - t0;
         printf("%d jobs echantillonnes sur %ld : %.2f s  (%.4f s/job)\n", K, J, dt, dt / K);
@@ -467,7 +467,7 @@ int main(int argc, char **argv)
         for (long id = part; id < J; id += nparts) {
             if (done[id]) continue;
             u64 T = run_job(id,rem0,ST1,ST2);
-            fprintf(fp, "%ld %d %llu\n", id, (int)ST1->reps[id].weight, T);
+            fprintf(fp, "%ld %d %llu\n", id, (int)ST1->leafs[id].weight, T);
             ndo++;
             if (ndo % 2000 == 0) {
                 fflush(fp);
