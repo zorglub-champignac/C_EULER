@@ -301,24 +301,16 @@ static void build_order(const Stage *ST1,const Stage *ST2)
         memcpy(remleft, remtot, sizeof(remtot));
     }
     for (int j = 0; j < nbRemT; j++) {
-        int best = -1; int bestscore = -1000000;
+        // int best = -1; int bestscore = -1000000;
         for (int i = 0; i < nbTriplets; i++){
             if (!used[i]) {
-                int sc = 0;
+                used[i] = 1;
                 for (uint8_t k = 0; k < 3; k++) {
-                    int p = tp[i][k];
-                    if (remleft[p] == 1) sc += 10;
-                    if (remleft[p] == remtot[p]) sc -= 1;
+                    remT[j][k] = tp[i][k];
+                    remleft[tp[i][k]]--;
                 }
-                if (sc > bestscore) {
-                    bestscore = sc; best = i;
-                }
+                break ;
             }
-        }
-        used[best] = 1;
-        for (uint8_t k = 0; k < 3; k++) {
-            remT[j][k] = tp[best][k];
-            remleft[tp[best][k]]--;
         }
     }
 }
