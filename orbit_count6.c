@@ -314,31 +314,41 @@ static void build_order(const Stage *ST1,const Stage *ST2)
 }
 
 /* ------------------------------------------------ backtracking */
-static typeRemCov  cov[nbPairs], rem[nbPairs]; // utilisation des paires (cov in use, rem not use)
-static u64  cnt;
+// static typeRemCov  cov[nbPairs], rem[nbPairs]; // utilisation des paires (cov in use, rem not use)
+// static u64  cnt;
+typedef struct  {
+    typeRemCov  cov[nbPairs] ;
+    typeRemCov  rem[nbPairs] ;
+    u64 cnt ;
+}bt_dev ;
 
 // recursif, developpe les triplets complementaires (nbRemT) apres ceux developpes par les permutations
 // va de niveau 0 a nbRemT (56-(20+6)
 // calcule cnt le nombre de developpements possibles.
-static void bt(const int k)
+static bt_dev * bt(const int k)
 {
-    if (k == nbRemT) { cnt++; return; }
+    static bt_dev BT ;
+    if (k < 0) return &BT ;
+    if (k == nbRemT) { BT.cnt++; return &BT; }
     int a = remT[k][0]; int b = remT[k][1]; int c = remT[k][2];
-    rem[a]--; rem[b]--; rem[c]--;
+    BT.rem[a]--; BT.rem[b]--; BT.rem[c]--;
     for (uint8_t j = 0; j < 3; j++) {
         int p = remT[k][j];
-        if (cov[p] < 2) { // pas encore de double attribution
-            cov[p]++;
-            if (cov[a] + rem[a] >= 2 && cov[b] + rem[b] >= 2 && cov[c] + rem[c] >= 2) // test assez de cand pour atteindre 2
+        if (BT.cov[p] < 2) { // pas encore de double attribution
+            BT.cov[p]++;
+            if (BT.cov[a] + BT.rem[a] >= 2 && BT.cov[b] + BT.rem[b] >= 2 && BT.cov[c] + BT.rem[c] >= 2) // test assez de cand pour atteindre 2
                 bt(k + 1);
-            cov[p]--;
+            BT.cov[p]--;
         }
     }
-    rem[a]++; rem[b]++; rem[c]++;
+    BT.rem[a]++; BT.rem[b]++; BT.rem[c]++;
+    return &BT ;
 }
 /* un job = un representant de l'etage 1 ; retourne T = somme w2*count */
 static u64 run_job(long id,typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2)
 {
+    //static bt_dev BT ;
+    bt_dev * BT = bt(-1) ;
     typeRemCov base[nbPairs];
     u64 T = 0;
     const Rep *r1 = &ST1->reps[id];
@@ -349,15 +359,15 @@ static u64 run_job(long id,typeRemCov rem0[nbPairs],const Stage *ST1,const Stage
     for (int q = 0; q < ST2->nreps; q++) {
         const Rep *r2 = &ST2->reps[q];
         int ok = 1;
-        memcpy(cov, base, sizeof(base));
-        for (int i = 0; i < 6; i++) cov[tp[W2[i]][r2->choice[i]]]++;
-        memcpy(rem, rem0, nbPairs *sizeof(typeRemCov));
+        memcpy(BT->cov, base, sizeof(base));
+        for (int i = 0; i < 6; i++) BT->cov[tp[W2[i]][r2->choice[i]]]++;
+        memcpy(BT->rem, rem0, nbPairs *sizeof(typeRemCov));
         for (int p = 0; p < nbPairs; p++)
-            if (cov[p] > 2 || cov[p] + rem[p] < 2) { ok = 0; break; }
+            if (BT->cov[p] > 2 || BT->cov[p] + BT->rem[p] < 2) { ok = 0; break; }
         if (!ok) continue;
-        cnt = 0;
+        BT->cnt = 0;
         bt(0);
-        T += (u64)r2->weight * cnt;
+        T += (u64)r2->weight * BT->cnt;
     }
     return T;
 }
