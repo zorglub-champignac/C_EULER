@@ -294,22 +294,32 @@ static void build_order(const Stage *ST1,const Stage *ST2)
     for (int i = 0; i < 20; i++) used[ST1->W[i]] = 1;
     for (int i = 0; i < 6; i++) used[ST2->W[i]] = 1;
     memset(remtot, 0, sizeof(remtot));
-    for (int i = 0; i < nbTriplets; i++) if (!used[i])
-        for (int k = 0; k < 3; k++) remtot[tp[i][k]]++;
-    memcpy(remleft, remtot, sizeof(remtot));
+    for (int i = 0; i < nbTriplets; i++) {
+        if (!used[i]) {
+            for (int k = 0; k < 3; k++) remtot[tp[i][k]]++;
+        }
+        memcpy(remleft, remtot, sizeof(remtot));
+    }
     for (int j = 0; j < nbRemT; j++) {
         int best = -1; int bestscore = -1000000;
-        for (int i = 0; i < nbTriplets; i++) if (!used[i]) {
-            int sc = 0;
-            for (uint8_t k = 0; k < 3; k++) {
-                int p = tp[i][k];
-                if (remleft[p] == 1) sc += 10;
-                if (remleft[p] == remtot[p]) sc -= 1;
+        for (int i = 0; i < nbTriplets; i++){
+            if (!used[i]) {
+                int sc = 0;
+                for (uint8_t k = 0; k < 3; k++) {
+                    int p = tp[i][k];
+                    if (remleft[p] == 1) sc += 10;
+                    if (remleft[p] == remtot[p]) sc -= 1;
+                }
+                if (sc > bestscore) {
+                    bestscore = sc; best = i;
+                }
             }
-            if (sc > bestscore) { bestscore = sc; best = i; }
         }
         used[best] = 1;
-        for (uint8_t k = 0; k < 3; k++) { remT[j][k] = tp[best][k]; remleft[tp[best][k]]--; }
+        for (uint8_t k = 0; k < 3; k++) {
+            remT[j][k] = tp[best][k];
+            remleft[tp[best][k]]--;
+        }
     }
 }
 
@@ -325,30 +335,31 @@ typedef struct  {
 // recursif, developpe les triplets complementaires (nbRemT) apres ceux developpes par les permutations
 // va de niveau 0 a nbRemT (56-(20+6)
 // calcule cnt le nombre de developpements possibles.
-static bt_dev * bt(const int k)
+static void bt(const int k, bt_dev *BT)
 {
-    static bt_dev BT ;
-    if (k < 0) return &BT ;
-    if (k == nbRemT) { BT.cnt++; return &BT; }
+    //static bt_dev BT ;
+    //if (k < 0) return &BT ;
+    if (k == nbRemT) { BT->cnt++;  }
     int a = remT[k][0]; int b = remT[k][1]; int c = remT[k][2];
-    BT.rem[a]--; BT.rem[b]--; BT.rem[c]--;
+    BT->rem[a]--; BT->rem[b]--; BT->rem[c]--;
     for (uint8_t j = 0; j < 3; j++) {
         int p = remT[k][j];
-        if (BT.cov[p] < 2) { // pas encore de double attribution
-            BT.cov[p]++;
-            if (BT.cov[a] + BT.rem[a] >= 2 && BT.cov[b] + BT.rem[b] >= 2 && BT.cov[c] + BT.rem[c] >= 2) // test assez de cand pour atteindre 2
-                bt(k + 1);
-            BT.cov[p]--;
+        if (BT->cov[p] < 2) { // pas encore de double attribution
+            BT->cov[p]++;
+            if (BT->cov[a] + BT->rem[a] >= 2 && BT->cov[b] + BT->rem[b] >= 2 && BT->cov[c] + BT->rem[c] >= 2) // test assez de cand pour atteindre 2
+                bt(k + 1,BT);
+            BT->cov[p]--;
         }
     }
-    BT.rem[a]++; BT.rem[b]++; BT.rem[c]++;
-    return &BT ;
+    BT->rem[a]++; BT->rem[b]++; BT->rem[c]++;
 }
 /* un job = un representant de l'etage 1 ; retourne T = somme w2*count */
 static u64 run_job(long id,typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2)
 {
-    //static bt_dev BT ;
-    bt_dev * BT = bt(-1) ;
+    static bt_dev *BT = NULL;
+    if(BT == NULL) {
+        BT = calloc(1, sizeof(bt_dev)) ;
+    }
     typeRemCov base[nbPairs];
     u64 T = 0;
     const Rep *r1 = &ST1->reps[id];
@@ -366,9 +377,10 @@ static u64 run_job(long id,typeRemCov rem0[nbPairs],const Stage *ST1,const Stage
             if (BT->cov[p] > 2 || BT->cov[p] + BT->rem[p] < 2) { ok = 0; break; }
         if (!ok) continue;
         BT->cnt = 0;
-        bt(0);
+        bt(0,BT);
         T += (u64)r2->weight * BT->cnt;
     }
+    // free(BT);
     return T;
 }
 /* --------------------------------------------------------- main */
