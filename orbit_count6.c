@@ -199,7 +199,6 @@ static void stage_dfs(Stage *S, int i )
 // ng : nombre de permutations
 // retourne la structure Stage correspondante
 // applique au niveau 1 (20 triplets) et au niveau 2 (6 triplets)
-//static Stage *stage_build(const int *W, int nbT, int perms[][8], int nbPerm) {
 static Stage *stage_build(Stage * S,int perms[][8]) {
     const int *W = S->W ;
     for (int nP = 0; nP < S->nbPerm; nP++) { // boucle sur les permutations
@@ -251,9 +250,6 @@ void stage_phase1(Stage *S) {
 
 
 
-static typeRemCov  remT[48][3];
-
-#define nbRemT 30 //56-(20+6)
 
 
 static const Stage * build_ST1(void) {
@@ -284,30 +280,22 @@ static const Stage * build_ST2(void) {
     return ST2 ;
 }
 
+#define nbRemT 30 //56-(20+6)
+static typeRemCov  remT[nbRemT][3];
 
 
 static void build_order(const Stage *ST1,const Stage *ST2)
 {
     int used[nbTriplets];
-    typeRemCov remtot[nbPairs], remleft[nbPairs];
     memset(used, 0, sizeof(used));
     for (int i = 0; i < 20; i++) used[ST1->W[i]] = 1;
     for (int i = 0; i < 6; i++) used[ST2->W[i]] = 1;
-    memset(remtot, 0, sizeof(remtot));
-    for (int i = 0; i < nbTriplets; i++) {
-        if (!used[i]) {
-            for (int k = 0; k < 3; k++) remtot[tp[i][k]]++;
-        }
-        memcpy(remleft, remtot, sizeof(remtot));
-    }
     for (int j = 0; j < nbRemT; j++) {
-        // int best = -1; int bestscore = -1000000;
         for (int i = 0; i < nbTriplets; i++){
             if (!used[i]) {
                 used[i] = 1;
                 for (uint8_t k = 0; k < 3; k++) {
                     remT[j][k] = tp[i][k];
-                    remleft[tp[i][k]]--;
                 }
                 break ;
             }
@@ -316,8 +304,6 @@ static void build_order(const Stage *ST1,const Stage *ST2)
 }
 
 /* ------------------------------------------------ backtracking */
-// static typeRemCov  cov[nbPairs], rem[nbPairs]; // utilisation des paires (cov in use, rem not use)
-// static u64  cnt;
 typedef struct  {
     typeRemCov  cov[nbPairs] ;
     typeRemCov  rem[nbPairs] ;
