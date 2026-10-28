@@ -117,7 +117,7 @@ static int gen_group(int lo, int m, int perms[][8])
 /* ------------------------------------------------------- etages */
 #define MAXT 20
 typedef struct {
-    uint8_t choice[MAXT];
+    uint8_t choice[MAXT];  // liste des MAXT(20) choix pour la feuille
     int16_t weight;
 } Leaf;
 
@@ -126,7 +126,7 @@ typedef struct {
     uint8_t choiceByP[MAXT][3] ;
 }Perm;
 typedef struct {
-    int nbT, nbPerm;                          // nnT : nombre de triplets, nbPerm : nombre de permutations.
+    int nbT, nbPerm;                          // nbT : nombre de triplets, nbPerm : nombre de permutations.
     const int *W;                       // liste des triplets (invariant)
     Perm Pe[720] ;
     int cov[nbPairs];                        // couverture des paires
@@ -137,21 +137,22 @@ typedef struct {
 } Stage;
 
 // calcul du developpement des feuilles (terminaux des developpements de permutation)
-// calcule dans wAssign le poids total
+// calcule dans wAssign le poids total (nombre de leaf)
+//
 static void stage_leaf(Stage *S)
 {
     int  stab = 0, nT = S->nbT;
-    const uint8_t *curChoice = S->curChoice;
+    const uint8_t *curChoice = S->curChoice; // correspond au developpement en cours par  stage_dfs
     S->wAssign++;
     { // tueuse d'abord
         Perm *peKiller = &S->Pe[S->killer];
         for (int j = 0; j < nT; j++) {
             int dk = peKiller->choiceByP[j][curChoice[peKiller->recip[j]]];
-            if (dk < curChoice[j]) return;
-            if (dk > curChoice[j]) break;
+            if (dk < curChoice[j]) return;    // killer est inferieure a curChoice, pas de changement
+            if (dk > curChoice[j]) break;     // killer est superieur a curchoice => recalcul de killer
         }
     }
-    for (int nPerm = 0; nPerm < S->nbPerm; nPerm++) {
+    for (int nPerm = 0; nPerm < S->nbPerm; nPerm++) {  // boucle sur toutes les permutations du stage
         int less = 0, greater = 0;
         Perm *pe = &S->Pe[nPerm];
         for (int j = 0; j < nT; j++) {
@@ -159,11 +160,12 @@ static void stage_leaf(Stage *S)
             if (d < curChoice[j]) { less = 1; break; }
             if (d > curChoice[j]) { greater = 1; break; }
         }
-        if (less) { S->killer = nPerm; return; }
-        if (!greater) stab++;           /* image identique : stabilisateur */
+        if (less) { S->killer = nPerm; return; } //perm lexicalement inferieur => devient killer
+        if (!greater) stab++;           /* choice identique : stabilisateur */
     }
     /* canonique */
     if (S->nleaf == S->cap) {
+        // allocation supplémentaire ?
         S->cap = S->cap ? S->cap * 2 : 1024;
         S->leafs = (Leaf *)realloc(S->leafs, (size_t)S->cap * sizeof(Leaf));
         if (!S->leafs) { fprintf(stderr, "memoire insuffisante\n"); exit(1); }
@@ -178,6 +180,8 @@ static void stage_leaf(Stage *S)
 // algo recursif de developpement des triplets choisis par permutations
 // i niveau courant du developpement (de 0 -> 20 ou 0 ->6
 // appelle pour chaque terminaison stage_leaf pour calculer le poids et le stabilisateur
+// utilise uniquement dans las phase 1
+// developpe du niveau 0 au niveau nbT (nombre de triplets 20)
 static void stage_dfs(Stage *S, int i )
 {
     if (i == S->nbT) {
@@ -254,7 +258,7 @@ void stage_phase1(Stage *S) {
 
 static Stage * build_ST1(void) {
     static int perms1[720][8] ; // liste des 720 permutations de 012345 67  (67 invariant)
-    static int  W1[20] ; // liste des 20 triplets de [0,6[
+    static int  W1[MAXT] ; // liste des 20 triplets de [0,6[
     // 012 013 014 015 023 024 025 034 035 045 123 124 125 134 135 145 234 235 245 345
 
 
@@ -264,7 +268,7 @@ static Stage * build_ST1(void) {
             for (int c = b + 1; c < 6; c++) W1[k++] = tidx[a][b][c];
     Stage *ST1 = (Stage *)calloc(1, sizeof(Stage));
     int nbPerm1 = gen_group(0, 6, perms1); // permutations de {0,1,2,3,4,5}
-    ST1->nbT = 20; ST1->nbPerm = nbPerm1; ST1->W = W1; ST1->killer = 0;
+    ST1->nbT = MAXT; ST1->nbPerm = nbPerm1; ST1->W = W1; ST1->killer = 0;
     ST1 = stage_build(ST1, perms1);
     return ST1;
 }
@@ -312,6 +316,7 @@ u64 cnt ;
 // recursif, developpe les triplets complementaires (nbRemT) apres ceux developpes par les permutations
 // va de niveau 0 a nbRemT (56-(20+6)
 // calcule cnt le nombre de developpements possibles.
+// Utilise dans la phase 2 (jobs)
 static void bt(const int k)
 {
     if (k == nbRemT) { cnt++;  }
