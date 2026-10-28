@@ -281,13 +281,10 @@ static Stage * build_ST2(void) {
 }
 
 #define nbRemT 30 //56-(20+6)
-static typeRemCov  remT[nbRemT][3];
 
 
-static void build_order(const Stage *ST1,const Stage *ST2)
-{
-    int used[nbTriplets];
-    memset(used, 0, sizeof(used));
+static void  build_remT(typeRemCov remT[][3],const Stage *ST1,const Stage *ST2) {
+    int used[nbTriplets] = {0};
     for (int i = 0; i < 20; i++) used[ST1->W[i]] = 1;
     for (int i = 0; i < 6; i++) used[ST2->W[i]] = 1;
     for (int j = 0; j < nbRemT; j++) {
@@ -304,40 +301,36 @@ static void build_order(const Stage *ST1,const Stage *ST2)
 }
 
 /* ------------------------------------------------ backtracking */
-typedef struct  {
-    typeRemCov  cov[nbPairs] ;
-    typeRemCov  rem[nbPairs] ;
-    u64 cnt ;
-}bt_dev ;
 
+typeRemCov  remT[nbRemT][3] ;
+typeRemCov  cov[nbPairs] ;
+typeRemCov  rem[nbPairs] ;
+u64 cnt ;
+
+
+//static bt_dev BT = {{{0}},{0},{0},0};
 // recursif, developpe les triplets complementaires (nbRemT) apres ceux developpes par les permutations
 // va de niveau 0 a nbRemT (56-(20+6)
 // calcule cnt le nombre de developpements possibles.
-static void bt(const int k, bt_dev *BT)
+static void bt(const int k)
 {
-    //static bt_dev BT ;
-    //if (k < 0) return &BT ;
-    if (k == nbRemT) { BT->cnt++;  }
+    if (k == nbRemT) { cnt++;  }
     int a = remT[k][0]; int b = remT[k][1]; int c = remT[k][2];
-    BT->rem[a]--; BT->rem[b]--; BT->rem[c]--;
+    rem[a]--; rem[b]--; rem[c]--;
     for (uint8_t j = 0; j < 3; j++) {
         int p = remT[k][j];
-        if (BT->cov[p] < 2) { // pas encore de double attribution
-            BT->cov[p]++;
-            if (BT->cov[a] + BT->rem[a] >= 2 && BT->cov[b] + BT->rem[b] >= 2 && BT->cov[c] + BT->rem[c] >= 2) // test assez de cand pour atteindre 2
-                bt(k + 1,BT);
-            BT->cov[p]--;
+        if (cov[p] < 2) { // pas encore de double attribution
+            cov[p]++;
+            if (cov[a] + rem[a] >= 2 && cov[b] + rem[b] >= 2 && cov[c] + rem[c] >= 2) // test assez de cand pour atteindre 2
+                bt(k + 1);
+            cov[p]--;
         }
     }
-    BT->rem[a]++; BT->rem[b]++; BT->rem[c]++;
+    rem[a]++; rem[b]++; rem[c]++;
 }
 /* un job = un representant de l'etage 1 ; retourne T = somme w2*count */
-static u64 run_job(long id,typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2)
+static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2)
 {
-    static bt_dev *BT = NULL;
-    if(BT == NULL) {
-        BT = calloc(1, sizeof(bt_dev)) ;
-    }
     typeRemCov base[nbPairs];
     u64 T = 0;
     const Leaf *r1 = &ST1->leafs[id];
@@ -348,17 +341,16 @@ static u64 run_job(long id,typeRemCov rem0[nbPairs],const Stage *ST1,const Stage
     for (int q = 0; q < ST2->nleaf; q++) {
         const Leaf *r2 = &ST2->leafs[q];
         int ok = 1;
-        memcpy(BT->cov, base, sizeof(base));
-        for (int i = 0; i < 6; i++) BT->cov[tp[W2[i]][r2->choice[i]]]++;
-        memcpy(BT->rem, rem0, nbPairs *sizeof(typeRemCov));
+        memcpy(cov, base, sizeof(base));
+        for (int i = 0; i < 6; i++) cov[tp[W2[i]][r2->choice[i]]]++;
+        memcpy(rem, rem0, nbPairs *sizeof(typeRemCov));
         for (int p = 0; p < nbPairs; p++)
-            if (BT->cov[p] > 2 || BT->cov[p] + BT->rem[p] < 2) { ok = 0; break; }
+            if (cov[p] > 2 || cov[p] + rem[p] < 2) { ok = 0; break; }
         if (!ok) continue;
-        BT->cnt = 0;
-        bt(0,BT);
-        T += (u64)r2->weight * BT->cnt;
+        cnt = 0;
+        bt(0);
+        T += (u64)r2->weight * cnt;
     }
-    // free(BT);
     return T;
 }
 /* --------------------------------------------------------- main */
@@ -377,106 +369,108 @@ static void print_info(const Stage *ST1,const Stage *ST2)
            (double)ST1->wAssign * ST2->wAssign / ((double)ST1->nleaf * ST2->nleaf));
     printf("Triplets restants a parcourir : %d\n", nbRemT);
 }
+void check_sum(long nb_leaf,char *name_fp ) {
+    char *done = (char *)calloc((size_t)nb_leaf, 1);
+    unsigned long long total = 0;
+    long ndone = 0, missing = 0;
 
-int main(int argc, char **argv)
-{
-    // long  id;
+    FILE *fp = fopen(name_fp, "r");
+    long jid; int w; u64 T;
+    if (!fp) {
+        fprintf(stderr, "ouverture impossible : %s\n", name_fp);
+    }else {
+        while (fscanf(fp, "%ld %d %llu", &jid, &w, &T) == 3) {
+            if (jid >= 0 && jid < nb_leaf && !done[jid]) {
+                done[jid] = 1; ndone++;
+                total += (u64)w * T;
+            }
+        }
+    }
+    fclose(fp);
+
+    for (long id = 0; id < nb_leaf; id++) if (!done[id]) missing++;
+    printf("jobs termines : %ld / %ld   manquants : %ld\n", ndone, nb_leaf, missing);
+    printf("TOTAL (partiel si manquants) = %llu\n", total);
+    if (missing == 0)
+        printf("Comparaison avec N attendu 125047355835960 : %s\n",
+               total == 125047355835960ULL ? "IDENTIQUE" : "DIFFERENT");
+    free(done);
+
+}
+
+void compute_job( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)   {
+    long nb_leaf = ST1->nleaf;
+    char fname[64];
+    time_t t0 = time(NULL);
+    long ndo = 0, nskip = 0;
+    if (fileName != NULL) {
+        strcpy(fname, fileName);
+    } else {
+        sprintf(fname, "res6_%d.txt", 0);
+    }
+    char *done = (char *)calloc((size_t)nb_leaf, 1);
+    FILE *fp = fopen(fname, "r");
+    if (fp) {
+        long jid; int w; u64 T;
+        while (fscanf(fp, "%ld %d %llu", &jid, &w, &T) == 3)
+            if (jid >= 0 && jid < nb_leaf) { done[jid] = 1; nskip++; }
+        fclose(fp);
+    }
+    print_info(ST1,ST2); fflush(stdout);
+    printf(" fichier %s, deja faits : %ld\n", fname, nskip);
+    fp = fopen(fname, "a");
+    if (!fp) { perror("res"); return ; }
+    for (long id = 0; id < nb_leaf; id ++) {
+        if (done[id]) continue;
+        u64 T = run_job(id,rem0,ST1,ST2);
+        fprintf(fp, "%ld %d %llu\n", id, (int)ST1->leafs[id].weight, T);
+        ndo++;
+        if (ndo % 2000 == 0) {
+            fflush(fp);
+            printf("[%lds] %ld jobs faits dans cette session (dernier id %ld)\n",
+                   (long)(time(NULL) - t0), ndo, id);
+        }
+    }
+    fclose(fp);
+    check_sum(nb_leaf,fname ) ;
+}
+
+void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
+    long nb_leaf = ST1->nleaf ;
+    long step = nb_leaf / K;
+    double t0 = (double)clock() / CLOCKS_PER_SEC;
+    double sumT = 0.0;
+    for (int i = 0; i < K; i++) {
+        long id = (long)i * step + step / 2;
+        sumT += (double)ST1->leafs[id].weight * (double)run_job(id,rem0,ST1,ST2);
+    }
+    double dt = (double)clock() / CLOCKS_PER_SEC - t0;
+    printf("%d jobs echantillonnes sur %ld : %.2f s  (%.4f s/job)\n", K, nb_leaf, dt, dt / K);
+    printf("Temps total estime (1 coeur) : %.0f s = %.1f h\n", dt / K * nb_leaf, dt / K * nb_leaf / 3600.0);
+    printf("Estimation de N (tres approximative) : %.3e\n", sumT / K * nb_leaf);
+
+}
+
+int main(int argc, char **argv){
     const clock_t c0 = clock();
-
     init_basic();
     Stage * ST1 = build_ST1();
     Stage * ST2 = build_ST2();
-    // build_stages();
     stage_phase1(ST2);
     stage_phase1(ST1);
-
-    build_order(ST1,ST2);
-
-    // init_rem0();
-    static typeRemCov rem0[nbPairs];
-    {
-        memset(rem0, 0, sizeof(rem0));
-        for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
-    }
-
-    long J = ST1->nleaf;
+    build_remT(remT,ST1,ST2);
     fprintf(stderr, "[orbites construites en %.1f s]\n", (double)(clock() - c0) / CLOCKS_PER_SEC);
 
     if (argc >= 2 && strcmp(argv[1], "--info") == 0) { print_info(ST1,ST2); return 0; }
+    if (argc >= 3 && strcmp(argv[1], "--sum") == 0) { check_sum(ST1->nleaf,argv[2] ) ; return 0; }
 
-    if (argc >= 3 && strcmp(argv[1], "--sample") == 0) {
-        int K = atoi(argv[2]);
-        long step = J / K;
-        double t0 = (double)clock() / CLOCKS_PER_SEC;
-        double sumT = 0.0;
-        for (int i = 0; i < K; i++) {
-            long id = (long)i * step + step / 2;
-            sumT += (double)ST1->leafs[id].weight * (double)run_job(id,rem0,ST1,ST2);
-        }
-        double dt = (double)clock() / CLOCKS_PER_SEC - t0;
-        printf("%d jobs echantillonnes sur %ld : %.2f s  (%.4f s/job)\n", K, J, dt, dt / K);
-        printf("Temps total estime (1 coeur) : %.0f s = %.1f h\n", dt / K * J, dt / K * J / 3600.0);
-        printf("Estimation de N (tres approximative) : %.3e\n", sumT / K * J);
-        return 0;
-    }
+    static typeRemCov rem0[nbPairs] = {0};
+    for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
 
-    if (argc >= 3 && strcmp(argv[1], "--sum") == 0) {
-        char *done = (char *)calloc((size_t)J, 1);
-        unsigned long long total = 0;
-        long ndone = 0, missing = 0;
-        for (int f = 2; f < argc; f++) {
-            FILE *fp = fopen(argv[f], "r");
-            long jid; int w; u64 T;
-            if (!fp) { fprintf(stderr, "ouverture impossible : %s\n", argv[f]); continue; }
-            while (fscanf(fp, "%ld %d %llu", &jid, &w, &T) == 3) {
-                if (jid >= 0 && jid < J && !done[jid]) {
-                    done[jid] = 1; ndone++;
-                    total += (u64)w * T;
-                }
-            }
-            fclose(fp);
-        }
-        for (long id = 0; id < J; id++) if (!done[id]) missing++;
-        printf("jobs termines : %ld / %ld   manquants : %ld\n", ndone, J, missing);
-        printf("TOTAL (partiel si manquants) = %llu\n", total);
-        if (missing == 0)
-            printf("Comparaison avec N attendu 125047355835960 : %s\n",
-                   total == 125047355835960ULL ? "IDENTIQUE" : "DIFFERENT");
-        return 0;
-    }
+    if (argc >= 3 && strcmp(argv[1], "--sample") == 0) { int K = atoi(argv[2]); compute_sample(K,rem0,ST1,ST2); return 0; }
 
-    {
-        int part = 0, nparts = 1;
-        char fname[64];
-        time_t t0 = time(NULL);
-        long ndo = 0, nskip = 0;
-        if (argc >= 3) { part = atoi(argv[1]); nparts = atoi(argv[2]); }
-        sprintf(fname, "res6_%d.txt", part);
-        char * done = (char *)calloc((size_t)J, 1);
-        FILE *fp = fopen(fname, "r");
-        if (fp) {
-            long jid; int w; u64 T;
-            while (fscanf(fp, "%ld %d %llu", &jid, &w, &T) == 3)
-                if (jid >= 0 && jid < J) { done[jid] = 1; nskip++; }
-            fclose(fp);
-        }
-        print_info(ST1,ST2); fflush(stdout);
-        printf("partie %d/%d, fichier %s, deja faits : %ld\n", part, nparts, fname, nskip);
-        fp = fopen(fname, "a");
-        if (!fp) { perror("res"); return 1; }
-        for (long id = part; id < J; id += nparts) {
-            if (done[id]) continue;
-            u64 T = run_job(id,rem0,ST1,ST2);
-            fprintf(fp, "%ld %d %llu\n", id, (int)ST1->leafs[id].weight, T);
-            ndo++;
-            if (ndo % 2000 == 0) {
-                fflush(fp);
-                printf("[%lds] %ld jobs faits dans cette session (dernier id %ld)\n",
-                       (long)(time(NULL) - t0), ndo, id);
-            }
-        }
-        fclose(fp);
-        printf("Termine. Utiliser --sum pour le total.\n");
-    }
+    char fname[64];
+    if ( argc > 1) { strcpy(fname, argv[1]); } else { sprintf(fname, "res6_%d.txt", 0); }
+    compute_job(fname,rem0,ST1,ST2) ;
     return 0;
 }
