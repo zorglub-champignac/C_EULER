@@ -50,7 +50,7 @@ typedef int typeRemCov ;
 static int pid_[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )
 static int P2[nbPairs][2]; // liste des paires
 static int tri[nbTriplets][3]; // liste des triplets
-static int tidx[8][8][8];//  tableau des index [0,5>6[ des triplets ordonnés (a<b<c => index )
+static int tidx[8][8][8];//  tableau des index [0,56[ des triplets ordonnés (a<b<c => index )
 static int tp[nbTriplets][3]; // liste des index de paires associées au triplet pid[a][b], pid[a][c], pid[b][c]
 
 // construit les tableaux precedents
@@ -384,8 +384,7 @@ void check_sum(long nb_leaf,char *name_fp ) {
     if (!fp) {
         fprintf(stderr, "ouverture impossible : %s\n", name_fp);
     }else {
-        while (fscanf(fp, "%ld %d %llu", &jid, &w, &T) == 3) {
-            if (jid >= 0 && jid < nb_leaf && !done[jid]) {
+        while (fscanf(fp, "%ld %d %llu", &jid, &w, &T) == 3) {    if (jid >= 0 && jid < nb_leaf && !done[jid]) {
                 done[jid] = 1; ndone++;
                 total += (u64)w * T;
             }
