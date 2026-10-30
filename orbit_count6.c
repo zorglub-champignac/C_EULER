@@ -122,18 +122,18 @@ typedef struct {
 } Leaf;
 
 typedef struct {
-    int32_t recip[MAXT] ;
+    uint8_t recip[MAXT] ;
     uint8_t choiceByP[MAXT][3] ;
 }Perm;
 typedef struct {
     int nbT, nbPerm;                          // nbT : nombre de triplets, nbPerm : nombre de permutations.
     const int *W;                       // liste des triplets (invariant)
-    Perm Pe[720] ;
-    int cov[nbPairs];                        // couverture des paires
+    int8_t cov[nbPairs];                        // couverture des paires
     uint8_t curChoice[MAXT];             // choix pour chaque triplet (a,b,c) de la paire associée (0 = (a,b) , 1=(a,c) 2=(b,c)
     Leaf *leafs; long nleaf, cap;
     long wAssign;                       // poids total du developpement
     int killer;
+    Perm Pe[720] ;
 } Stage;
 
 // calcul du developpement des feuilles (terminaux des developpements de permutation)
@@ -306,10 +306,10 @@ static void  build_remT(typeRemCov remT[][3],const Stage *ST1,const Stage *ST2) 
 
 /* ------------------------------------------------ backtracking */
 
-typeRemCov  remT[nbRemT][3] ;
-typeRemCov  cov[nbPairs] ;
-typeRemCov  rem[nbPairs] ;
-u64 cnt ;
+static typeRemCov  remT[nbRemT][3] ;
+static typeRemCov  cov[nbPairs] ;
+static typeRemCov  rem[nbPairs] ;
+static u64 cnt ;
 
 
 //static bt_dev BT = {{{0}},{0},{0},0};
