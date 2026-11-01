@@ -144,7 +144,6 @@ typedef struct {
 
 // calcul du developpement des feuilles (terminaux des developpements de permutation)
 // calcule dans wAssign le poids total (nombre de leaf)
-//
 static void stage_leaf(Stage *S)
 {
     int  stab = 0, nT = S->nbT;
@@ -188,17 +187,17 @@ static void stage_leaf(Stage *S)
 // appelle pour chaque terminaison stage_leaf pour calculer le poids et le stabilisateur
 // utilise uniquement dans las phase 1
 // developpe du niveau 0 au niveau nbT (nombre de triplets 20)
-static void stage_dfs(Stage *S, int i )
+static void stage_dfs(Stage *S, int j )
 {
-    if (i == S->nbT) {
+    if (j == S->nbT) {
         stage_leaf(S);
         return;
     }
     for (uint8_t c = 0; c < 3; c++) {
-        int p = tp[S->W[i]][c]; // paire
+        int p = tp[S->W[j]][c]; // paire
         if (S->cov[p] < 2) {
-            S->cov[p]++; S->curChoice[i] = c;
-            stage_dfs(S, i + 1);
+            S->cov[p]++; S->curChoice[j] = c;
+            stage_dfs(S, j + 1);
             S->cov[p]--;
         }
     }
@@ -214,7 +213,6 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
     for (int nP = 0; nP < S->nbPerm; nP++) { // boucle sur les permutations
         for (int i = 0; i < S->nbT; i++) { // boucle sur les triplets
             int *t = tri[S->W[i]]; // on recupere le triplet
-//            int gi = tindex3(perms[nP][t[0]], perms[nP][t[1]], perms[nP][t[2]]); // on applique la permutation
             int gi = tidx[perms[nP][t[0]]][perms[nP][t[1]]][perms[nP][t[2]]]; // on applique la permutation
             // et l'on recupere l'index correspondant du triplet associe
             int j ;
@@ -228,7 +226,6 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
             for (int8_t c = 0; c < 3; c++) { // boucle sur la paire associée
                 int p = tp[W[i]][c]; // paire associee pour W[i]
                 int q = pid_[perms[nP][P2[p][0]]][perms[nP][P2[p][1]]]; // q index de la paire en appliquant la permut g
-
                 uint8_t k ;
                 for (k = 0; k < 3; k++) if (tp[W[j]][k] == q) break;
                 if (k == 3) {
@@ -239,11 +236,6 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
                 pe->choiceByP[j][c] = k; // on stocke le nouvel index (0, ou 1, ou 2)
             }
             // printf("Pe[%d](%d,%d,%d) \n",nP,pe->choiceByP[j][0],pe->choiceByP[j][1],pe->choiceByP[j][2]);
-            /*
-            for (int8_t c = 0; c < 3; c++) {
-                pe->choiceByP[j][c] = c;
-            }
-            */
         }
     }
     return S;
@@ -280,7 +272,7 @@ static Stage * build_ST1(void) {
             for (int c = b + 1; c < 6; c++) W1[k++] = tidx[a][b][c];
     Stage *ST1 = (Stage *)calloc(1, sizeof(Stage));
     int nbPerm1 = gen_group(0, 6, perms1); // permutations de {0,1,2,3,4,5}
-    ST1->nbT = MAXT; ST1->nbPerm = nbPerm1; ST1->W = W1; ST1->killer = 0;
+    ST1->nbT = MAXT; ST1->nbPerm = nbPerm1; ST1->W = W1;
     ST1 = stage_build(ST1, perms1);
     return ST1;
 }
@@ -291,7 +283,7 @@ static Stage * build_ST2(void) {
     for (int a = 0; a < 6; a++) W2[a] = tidx[a][6][7]; // 067
     Stage *ST2 = (Stage *)calloc(1, sizeof(Stage));
     int nbPerm2 = gen_group(6, 2, perms2); // permutations de {6,7}
-    ST2->nbT =6; ST2->nbPerm = nbPerm2; ST2->W = W2; ST2->killer = 0;
+    ST2->nbT =6; ST2->nbPerm = nbPerm2; ST2->W = W2;
     ST2 = stage_build(ST2, perms2);
     return ST2 ;
 }
@@ -331,19 +323,22 @@ static u64 cnt ;
 // Utilise dans la phase 2 (jobs)
 static void bt(const int k)
 {
-    if (k == nbRemT) { cnt++;  }
-    int a = remT[k][0]; int b = remT[k][1]; int c = remT[k][2];
-    rem[a]--; rem[b]--; rem[c]--;
-    for (uint8_t j = 0; j < 3; j++) {
-        int p = remT[k][j];
-        if (cov[p] < 2) { // pas encore de double attribution
-            cov[p]++;
-            if (cov[a] + rem[a] >= 2 && cov[b] + rem[b] >= 2 && cov[c] + rem[c] >= 2) // test assez de cand pour atteindre 2
-                bt(k + 1);
-            cov[p]--;
+    if (k == nbRemT) { cnt++; return ; }
+    int const pa = remT[k][0]; int const pb = remT[k][1]; int const pc = remT[k][2];
+    if (cov[pa] + rem[pa] >= 2 && cov[pb] + rem[pb] >= 2 && cov[pc] + rem[pc] >= 2) {
+        rem[pa]--; rem[pb]--; rem[pc]--;
+
+        if (cov[pa] < 2 && cov[pb] + rem[pb] >= 2 && cov[pc] + rem[pc] >= 2) { // pas encore de double attribution
+            cov[pa]++; bt(k + 1); cov[pa]--;
         }
+        if (cov[pb] < 2 && cov[pa] + rem[pa] >= 2 && cov[pc] + rem[pc] >= 2) { // pas encore de double attribution
+            cov[pb]++; bt(k + 1); cov[pb]--;
+        }
+        if (cov[pc] < 2 && cov[pa] + rem[pa] >= 2 && cov[pb] + rem[pb] >= 2) { // pas encore de double attribution
+            cov[pc]++; bt(k + 1); cov[pc]--;
+        }
+        rem[pa]++; rem[pb]++; rem[pc]++;
     }
-    rem[a]++; rem[b]++; rem[c]++;
 }
 /* un job = un representant de l'etage 1 ; retourne T = somme w2*count */
 static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2)
