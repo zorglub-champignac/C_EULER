@@ -43,7 +43,7 @@
 
 typedef unsigned long long u64;
 
-typedef int typeRemCov ;
+typedef int32_t typeRemCov ;
 #define nbPairs 28
 #define nbTriplets 56
 /* ---------------------------------------------------------------- base */
@@ -313,6 +313,7 @@ static void  build_remT(typeRemCov remT[][3],const Stage *ST1,const Stage *ST2) 
 static typeRemCov  remT[nbRemT][3] ;
 static typeRemCov  cov[nbPairs] ;
 static typeRemCov  rem[nbPairs] ;
+
 static u64 cnt ;
 
 
@@ -349,12 +350,16 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
     const int * W1 = ST1->W;
     const int * W2 = ST2->W;
     memset(base, 0, sizeof(base));
-    for (int i = 0; i < 20; i++) base[tp[W1[i]][r1->choice[i]]]++;
+    for (int i = 0; i < 20; i++) {
+        base[tp[W1[i]][r1->choice[i]]]++;
+    }
     for (int q = 0; q < ST2->nleaf; q++) {
         const Leaf *r2 = &ST2->leafs[q];
         int ok = 1;
         memcpy(cov, base, sizeof(base));
-        for (int i = 0; i < 6; i++) cov[tp[W2[i]][r2->choice[i]]]++;
+        for (int i = 0; i < 6; i++) {
+            cov[tp[W2[i]][r2->choice[i]]]++;
+        }
         memcpy(rem, rem0, nbPairs *sizeof(typeRemCov));
         for (int p = 0; p < nbPairs; p++)
             if (cov[p] > 2 || cov[p] + rem[p] < 2) { ok = 0; break; }
