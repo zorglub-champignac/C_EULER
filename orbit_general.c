@@ -118,9 +118,35 @@ static int gen_group(int lo, int m, int perms[][8])
     } while (next_perm(a, m));
     return ng;
 }
+// perm5_W4 CIBLE = 1
+// perm6_W6 CIBLE = 2
+
+#define CIBLE 2
+
+#if CIBLE == 1
+#   define CIBLE_NAME  "perm5_W4"
+#   define PERM1 5  // permutation de [012..4[
+#   define NBPERM1 120 //5!
+#   define MAXT   10  // 5x4x3
+#   define SIZE_W2 4
+#   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7}}
+#   define G_PERM2 3
+#   define NBPERM2 6
+#   define nbRemT 42  // NbTriplets - MAXT - SIZE_W2  56-(10+4)
+#elif CIBLE == 2
+#   define CIBLE_NAME  "perm6_W6"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 6
+#   define LIST_W2 {{0,6,7},{1,6,7},{2,6,7},{3,6,7},{4,6,7},{5,6,7}}
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 30  // NbTriplets - MAXT - SIZE_W2  56-(20+6)
+#endif
 
 /* ------------------------------------------------------- etages */
-#define MAXT 10
+// #define MAXT 10
 typedef struct {
     uint8_t choice[MAXT];  // liste des MAXT(35) choix pour la feuille
     int16_t weight;
@@ -138,7 +164,7 @@ typedef struct {
     Leaf *leafs; long nleaf, cap;
     long wAssign;                       // poids total du developpement
     int killer;
-    Perm Pe[120] ;
+    Perm Pe[NBPERM1] ;
 } Stage;
 
 // calcul du developpement des feuilles (terminaux des developpements de permutation)
@@ -261,44 +287,49 @@ void stage_phase1(Stage *S) {
 
 
 static Stage * build_ST1(void) {
-    static int perms1[120][8] ; // liste des 120 permutations de 01234 567  (567 invariant)
-    static int  W1[MAXT] ; // liste des 10 triplets de [0,5[
+    static int perms1[NBPERM1][8] ; // liste des NBPERM permutation de [0..PERM1[
+    static int  W1[MAXT] ; // liste des triplets de [0,PERM1[
     // 012 013 014 023 024 034 123 124 134 234
 
 
     // int k = 0;
-    for (int k=0, a = 0; a < 5; a++)
-        for (int b = a + 1; b < 5; b++)
-            for (int c = b + 1; c < 5; c++) W1[k++] = tidx[a][b][c];
+    for (int k=0, a = 0; a < PERM1; a++)
+        for (int b = a + 1; b < PERM1; b++)
+            for (int c = b + 1; c < PERM1; c++) W1[k++] = tidx[a][b][c];
     Stage *ST1 = (Stage *)calloc(1, sizeof(Stage));
-    int nbPerm1 = gen_group(0, 5, perms1); // permutations de {0,1,2,3,4}
+    int nbPerm1 = gen_group(0, PERM1, perms1); // permutations de {0,1,..,PERM1-1}
     ST1->nbT = MAXT; ST1->nbPerm = nbPerm1; ST1->W = W1;
     ST1 = stage_build(ST1, perms1);
     return ST1;
 }
 
 static Stage * build_ST2(void) {
-    static int  W2[4] ; // liste des 4 triplets 567 056 057 067
-    W2[0] = tidx[5][6][7];
-    W2[1] = tidx[0][5][6];
-    W2[2] = tidx[0][5][7];
-    W2[3] = tidx[0][6][7];
-    static int perms2[6][8];  // liste des 2 permutations 01234567 01234576
+    const  int8_t  liste_w2[SIZE_W2][3]=LIST_W2 ;
+    static int  W2[SIZE_W2] ; // liste des triplets de W2
+    for (int k=0;k<SIZE_W2;k++) {
+        W2[k]= tidx[liste_w2[k][0]][liste_w2[k][1]][liste_w2[k][2]];
+    }
+    static int perms2[NBPERM2][8];  // liste des 2 permutations 01234567 01234576
     Stage *ST2 = (Stage *)calloc(1, sizeof(Stage));
-    int nbPerm2 = gen_group(5, 3, perms2); // permutations de {5,6,7}
-    printf("*********** nbPerm2=%d **********\n",nbPerm2);
-    ST2->nbT =4; ST2->nbPerm = nbPerm2; ST2->W = W2;
+ //  int nbPerm2 = gen_group(5, 3, perms2); // permutations de {5,6,7}
+ //   int nbPerm2 = gen_group(6, 2, perms2); // permutations de {5,6,7}
+    int nbPerm2 = gen_group(PERM1,G_PERM2,perms2);
+    if (nbPerm2 != NBPERM2) {
+        fprintf(stderr,"ERROR nbPerm2=%d expexted %d\n",nbPerm2,NBPERM2);
+        exit(1);
+    }
+    ST2->nbT =SIZE_W2; ST2->nbPerm = nbPerm2; ST2->W = W2;
     ST2 = stage_build(ST2, perms2);
     return ST2 ;
 }
 
-#define nbRemT 42 //56-(10+4)
+
 
 
 static void  build_remT(typeRemCov remT[][3],const Stage *ST1,const Stage *ST2) {
     int used[nbTriplets] = {0};
-    for (int i = 0; i < 10; i++) used[ST1->W[i]] = 1;
-    for (int i = 0; i < 4; i++) used[ST2->W[i]] = 1;
+    for (int i = 0; i < MAXT; i++) used[ST1->W[i]] = 1;
+    for (int i = 0; i < SIZE_W2; i++) used[ST2->W[i]] = 1;
     for (int j = 0; j < nbRemT; j++) {
         for (int i = 0; i < nbTriplets; i++){
             if (!used[i]) {
@@ -361,7 +392,7 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
         const Leaf *r2 = &ST2->leafs[q];
         int ok = 1;
         memcpy(cov, base, sizeof(base));
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < SIZE_W2; i++) {
             cov[tp[W2[i]][r2->choice[i]]]++;
         }
         memcpy(rem, rem0, nbPairs *sizeof(typeRemCov));
@@ -426,7 +457,7 @@ void compute_job( const char *fileName,const typeRemCov *rem0,const Stage *ST1,c
     if (fileName != NULL) {
         strcpy(fname, fileName);
     } else {
-        sprintf(fname, "res6v2_%d.txt", 0);
+        sprintf(fname, "res_%s_%d.txt",CIBLE_NAME,0);
     }
     char *done = (char *)calloc((size_t)nb_leaf, 1);
     FILE *fp = fopen(fname, "r");
@@ -440,13 +471,15 @@ void compute_job( const char *fileName,const typeRemCov *rem0,const Stage *ST1,c
     printf(" fichier %s, deja faits : %ld\n", fname, nskip);
     fp = fopen(fname, "a");
     if (!fp) { perror("res"); return ; }
+    int freq_ndo = (nb_leaf / 200) +1  ;
+    // if (freq_ndo==0) freq_ndo= 1;
     for (long id = 0; id < nb_leaf; id ++) {
         if (done[id]) continue;
         u64 T = run_job(id,rem0,ST1,ST2);
         fprintf(fp, "%ld %d %llu\n", id, (int)ST1->leafs[id].weight, T);
         ndo++;
 //        if (ndo % 2000 == 0) {
-        if (ndo % 2 == 0) {
+        if (ndo % freq_ndo == 0) {
             fflush(fp);
             printf("[%lds] %ld jobs faits dans cette session (dernier id %ld)\n",
                    (long)(time(NULL) - t0), ndo, id);
@@ -475,6 +508,7 @@ void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *
 int main(int argc, char **argv){
     const clock_t c0 = clock();
     init_basic();
+    printf("Execution %s\n",CIBLE_NAME);
     Stage * ST1 = build_ST1(); printf("buid_st1 OK\n");
     Stage * ST2 = build_ST2();  printf("buid_st2 OK\n");
     stage_phase1(ST2);  printf("ST2 phase 1 OK\n");
@@ -491,7 +525,9 @@ int main(int argc, char **argv){
     if (argc >= 3 && strcmp(argv[1], "--sample") == 0) { int K = atoi(argv[2]); compute_sample(K,rem0,ST1,ST2); return 0; }
 
     char fname[64];
-    if ( argc > 1) { strcpy(fname, argv[1]); } else { sprintf(fname, "res6v2_%d.txt", 0); }
+    if ( argc > 1) { strcpy(fname, argv[1]); } else {
+        sprintf(fname, "res_%s_%d.txt",CIBLE_NAME, 0);
+    }
     compute_job(fname,rem0,ST1,ST2) ;
     return 0;
 }
