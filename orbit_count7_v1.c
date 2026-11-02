@@ -1,7 +1,6 @@
 /*
  * orbit_count7_v1.c
  *
- *
  * Meme methode que orbit_count.c, avec des groupes plus gros :
  *
  * Etage 1 : W1 = les 20 triplets de {0,...,5,6}, groupe G1 = S6 (720 perms,
@@ -121,7 +120,7 @@ static int gen_group(int lo, int m, int perms[][8])
 }
 
 /* ------------------------------------------------------- etages */
-#define MAXT 20
+#define MAXT 10
 typedef struct {
     uint8_t choice[MAXT];  // liste des MAXT(35) choix pour la feuille
     int16_t weight;
@@ -139,7 +138,7 @@ typedef struct {
     Leaf *leafs; long nleaf, cap;
     long wAssign;                       // poids total du developpement
     int killer;
-    Perm Pe[720] ;
+    Perm Pe[120] ;
 } Stage;
 
 // calcul du developpement des feuilles (terminaux des developpements de permutation)
@@ -262,42 +261,44 @@ void stage_phase1(Stage *S) {
 
 
 static Stage * build_ST1(void) {
-    static int perms1[720][8] ; // liste des 720 permutations de 012345 67  (67 invariant)
-    static int  W1[MAXT] ; // liste des 35 triplets de [0,7[
-    // 012 013 014 015 016 023 024 025 026 034 035 036 045 046 056 123 124 125 126 134 135 136 145 146
-    // 234 235 236 245 246 345 346 456
+    static int perms1[120][8] ; // liste des 120 permutations de 01234 567  (567 invariant)
+    static int  W1[MAXT] ; // liste des 10 triplets de [0,5[
+    // 012 013 014 023 024 034 123 124 134 234
 
 
     // int k = 0;
-    for (int k=0, a = 0; a < 6; a++)
-        for (int b = a + 1; b < 6; b++)
-            for (int c = b + 1; c < 6; c++) W1[k++] = tidx[a][b][c];
+    for (int k=0, a = 0; a < 5; a++)
+        for (int b = a + 1; b < 5; b++)
+            for (int c = b + 1; c < 5; c++) W1[k++] = tidx[a][b][c];
     Stage *ST1 = (Stage *)calloc(1, sizeof(Stage));
-    int nbPerm1 = gen_group(0, 6, perms1); // permutations de {0,1,2,3,4,5,6}
+    int nbPerm1 = gen_group(0, 5, perms1); // permutations de {0,1,2,3,4}
     ST1->nbT = MAXT; ST1->nbPerm = nbPerm1; ST1->W = W1;
     ST1 = stage_build(ST1, perms1);
     return ST1;
 }
 
 static Stage * build_ST2(void) {
-    static int  W2[15] ; // liste des 6 triplets 067 167 267 367 467 567
-    static int perms2[2][8];  // liste des 2 permutations 01234567 01234576
-    for (int k=0, a = 0; a < 7; a++)
-        for (int b = a + 1; b < 7; b++) W2[k++] = tidx[a][b][7]; // ab7
+    static int  W2[4] ; // liste des 4 triplets 567 056 057 067
+    W2[0] = tidx[5][6][7];
+    W2[1] = tidx[0][5][6];
+    W2[2] = tidx[0][5][7];
+    W2[3] = tidx[0][6][7];
+    static int perms2[6][8];  // liste des 2 permutations 01234567 01234576
     Stage *ST2 = (Stage *)calloc(1, sizeof(Stage));
-    int nbPerm2 = gen_group(7, 1, perms2); // permutations de {7}
-    ST2->nbT =15; ST2->nbPerm = nbPerm2; ST2->W = W2;
+    int nbPerm2 = gen_group(5, 3, perms2); // permutations de {5,6,7}
+    printf("*********** nbPerm2=%d **********\n",nbPerm2);
+    ST2->nbT =4; ST2->nbPerm = nbPerm2; ST2->W = W2;
     ST2 = stage_build(ST2, perms2);
     return ST2 ;
 }
 
-#define nbRemT 21 //56-(20+15)
+#define nbRemT 42 //56-(10+4)
 
 
 static void  build_remT(typeRemCov remT[][3],const Stage *ST1,const Stage *ST2) {
     int used[nbTriplets] = {0};
-    for (int i = 0; i < 20; i++) used[ST1->W[i]] = 1;
-    for (int i = 0; i < 15; i++) used[ST2->W[i]] = 1;
+    for (int i = 0; i < 10; i++) used[ST1->W[i]] = 1;
+    for (int i = 0; i < 4; i++) used[ST2->W[i]] = 1;
     for (int j = 0; j < nbRemT; j++) {
         for (int i = 0; i < nbTriplets; i++){
             if (!used[i]) {
@@ -353,14 +354,14 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
     const int * W1 = ST1->W;
     const int * W2 = ST2->W;
     memset(base, 0, sizeof(base));
-    for (int i = 0; i < 35; i++) {
+    for (int i = 0; i < MAXT; i++) {
         base[tp[W1[i]][r1->choice[i]]]++;
     }
     for (int q = 0; q < ST2->nleaf; q++) {
         const Leaf *r2 = &ST2->leafs[q];
         int ok = 1;
         memcpy(cov, base, sizeof(base));
-        for (int i = 0; i < 15; i++) {
+        for (int i = 0; i < 4; i++) {
             cov[tp[W2[i]][r2->choice[i]]]++;
         }
         memcpy(rem, rem0, nbPairs *sizeof(typeRemCov));
@@ -377,12 +378,12 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
 static void print_info(const Stage *ST1,const Stage *ST2)
 {
     long  tw1 = 0, tw2 = 0, full = 0;
-    for (long i = 0; i < ST1->nleaf; i++) { tw1 += ST1->leafs[i].weight; if (ST1->leafs[i].weight == 720) full++; }
+    for (long i = 0; i < ST1->nleaf; i++) { tw1 += ST1->leafs[i].weight; if (ST1->leafs[i].weight == ST1->nbPerm) full++; }
     for (long i = 0; i < ST2->nleaf; i++) tw2 += ST2->leafs[i].weight;
-    printf("Etage 1 : %ld affectations faisables de W1 (35 triplets), %ld orbites sous S7 "
-           "(somme poids = %ld, orbites pleines de 5040 : %ld)\n", ST1->wAssign, ST1->nleaf, tw1, full);
-    printf("Etage 2 : %ld affectations faisables de W2 (15 triplets), %ld orbites sous S2 "
-           "(somme poids = %ld)\n", ST2->wAssign, ST2->nleaf, tw2);
+    printf("Etage 1 : %ld affectations faisables de W1 (%d triplets), %ld orbites sous S5 "
+           "(somme poids = %ld, orbites pleines de %d : %ld)\n", ST1->wAssign,ST1->nbT, ST1->nleaf, tw1,ST1->nbPerm, full);
+    printf("Etage 2 : %ld affectations faisables de W2 (%d triplets), %ld orbites sous S2 "
+           "(somme poids = %ld)\n", ST2->wAssign,ST2->nbT, ST2->nleaf, tw2);
     printf("Nombre de jobs (representants de l'etage 1) = %ld ; sous-comptages par job = %ld\n",
            ST1->nleaf, ST2->nleaf);
     printf("Gain nominal sur les configurations de depart : %.1f\n",
@@ -444,7 +445,8 @@ void compute_job( const char *fileName,const typeRemCov *rem0,const Stage *ST1,c
         u64 T = run_job(id,rem0,ST1,ST2);
         fprintf(fp, "%ld %d %llu\n", id, (int)ST1->leafs[id].weight, T);
         ndo++;
-        if (ndo % 2000 == 0) {
+//        if (ndo % 2000 == 0) {
+        if (ndo % 2 == 0) {
             fflush(fp);
             printf("[%lds] %ld jobs faits dans cette session (dernier id %ld)\n",
                    (long)(time(NULL) - t0), ndo, id);
