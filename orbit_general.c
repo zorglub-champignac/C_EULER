@@ -121,7 +121,7 @@ static int gen_group(int lo, int m, int perms[][8])
 // perm5_W4 CIBLE = 1
 // perm6_W6 CIBLE = 2
 
-#define CIBLE 2
+#define CIBLE 11
 
 #if CIBLE == 1
 #   define CIBLE_NAME  "perm5_W4"
@@ -130,6 +130,7 @@ static int gen_group(int lo, int m, int perms[][8])
 #   define MAXT   10  // 5x4x3
 #   define SIZE_W2 4
 #   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7}}
+#   define PERM2   5
 #   define G_PERM2 3
 #   define NBPERM2 6
 #   define nbRemT 42  // NbTriplets - MAXT - SIZE_W2  56-(10+4)
@@ -140,9 +141,110 @@ static int gen_group(int lo, int m, int perms[][8])
 #   define MAXT    20 // 6x5x4/6
 #   define SIZE_W2 6
 #   define LIST_W2 {{0,6,7},{1,6,7},{2,6,7},{3,6,7},{4,6,7},{5,6,7}}
+#   define PERM2   6
 #   define G_PERM2 2
 #   define NBPERM2 2
 #   define nbRemT 30  // NbTriplets - MAXT - SIZE_W2  56-(20+6)
+#elif CIBLE == 3
+#   define CIBLE_NAME  "perm6_W12"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 12
+#   define LIST_W2 {{0,1,6},{0,2,6},{0,3,6},{0,1,7},{0,2,7},{0,3,7},{1,2,6},{1,3,6},{1,2,7},{1,3,7},{2,3,6},{2,3,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 24  // NbTriplets - MAXT - SIZE_W2  56-(20+12)
+#elif CIBLE == 4
+#   define CIBLE_NAME  "perm6_W10"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 10
+#   define LIST_W2 {{0,1,6},{0,2,6},{0,3,6},{0,1,7},{0,2,7},{0,3,7},{1,2,6},{1,3,6},{1,2,7},{1,3,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 26  // NbTriplets - MAXT - SIZE_W2  56-(20+10)
+#elif CIBLE == 5
+#   define CIBLE_NAME  "perm6_W8"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 8
+#   define LIST_W2 {{0,1,6},{0,2,6},{0,3,6},{0,1,7},{0,2,7},{0,3,7},{1,2,6},{1,2,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 28  // NbTriplets - MAXT - SIZE_W2  56-(20+8)
+#elif CIBLE == 6
+#   define CIBLE_NAME  "perm6_W10a"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 10
+#   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7},{1,5,6},{1,5,7},{1,6,7},{2,5,6},{2,5,7},{2,6,7}}
+#   define PERM2   5
+#   define G_PERM2 3
+#   define NBPERM2 6
+#   define nbRemT 26  // NbTriplets - MAXT - SIZE_W2  56-(20+10)
+#elif CIBLE == 7
+#   define CIBLE_NAME  "perm6_W10b"
+#   define PERM1   6  // permutation de [012..6[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 10
+#   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7},{2,5,6},{2,5,7},{2,6,7},{4,5,6},{4,5,7},{4,6,7}}
+#   define PERM2   5
+#   define G_PERM2 3
+#   define NBPERM2 6
+#   define nbRemT 26  // NbTriplets - MAXT - SIZE_W2  56-(20+10)
+#elif CIBLE == 8
+#   define CIBLE_NAME  "perm6_W10c"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 10
+#   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7},{1,5,6},{1,5,7},{1,6,7},{2,5,6},{2,5,7},{2,6,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 26  // NbTriplets - MAXT - SIZE_W2  56-(20+10)
+#elif CIBLE == 9
+#   define CIBLE_NAME  "perm5_W10d"
+#   define PERM1   5  // permutation de [012..4[
+#   define NBPERM1 120 // 5!
+#   define MAXT    10 // 5x4x3/6
+#   define SIZE_W2 10
+#   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7},{1,5,6},{1,5,7},{1,6,7},{2,5,6},{2,5,7},{2,6,7}}
+#   define PERM2   5
+#   define G_PERM2 3
+#   define NBPERM2 6
+#   define nbRemT 36  // NbTriplets - MAXT - SIZE_W2  56-(10+10)
+#elif CIBLE == 10
+#   define CIBLE_NAME  "perm6_W4"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 4
+#   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 32  // NbTriplets - MAXT - SIZE_W2  56-(20+4)
+#elif CIBLE == 11
+#   define CIBLE_NAME  "perm6_W4a"
+#   define PERM1   6  // permutation de [012..5[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 4
+#   define LIST_W2 {{0,1,6},{0,1,7},{2,3,6},{2,3,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 32  // NbTriplets - MAXT - SIZE_W2  56-(20+4)
+
 #endif
 
 /* ------------------------------------------------------- etages */
@@ -199,8 +301,7 @@ static void stage_leaf(Stage *S)
         S->cap = S->cap ? S->cap * 2 : 1024;
         S->leafs = (Leaf *)realloc(S->leafs, (size_t)S->cap * sizeof(Leaf));
         if (!S->leafs) { fprintf(stderr, "memoire insuffisante\n"); exit(1); }
-        printf("Alloc %ld\n",S->cap);
-    }
+     }
     {
         Leaf *r = &S->leafs[S->nleaf++];
         memcpy(r->choice, curChoice, nT);
@@ -244,7 +345,8 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
             int j ;
             for (j = 0; j < S->nbT; j++) if (S->W[j] == gi) break; // on recupere l'index du triplet associe
             if (j == S->nbT) { // ne doit jamais se produire
-                fprintf(stderr, "W non invariant sous le groupe\n");
+                fprintf(stderr, "W non invariant sous le groupe pour {%d,%d,%d}\n"
+                    ,perms[nP][t[0]],perms[nP][t[1]],perms[nP][t[2]]);
                 exit(1);
             }
             Perm *pe = &S->Pe[nP];
@@ -313,7 +415,7 @@ static Stage * build_ST2(void) {
     Stage *ST2 = (Stage *)calloc(1, sizeof(Stage));
  //  int nbPerm2 = gen_group(5, 3, perms2); // permutations de {5,6,7}
  //   int nbPerm2 = gen_group(6, 2, perms2); // permutations de {5,6,7}
-    int nbPerm2 = gen_group(PERM1,G_PERM2,perms2);
+    int nbPerm2 = gen_group(PERM2,G_PERM2,perms2);
     if (nbPerm2 != NBPERM2) {
         fprintf(stderr,"ERROR nbPerm2=%d expexted %d\n",nbPerm2,NBPERM2);
         exit(1);
@@ -431,9 +533,15 @@ void check_sum(long nb_leaf,char *name_fp ) {
     if (!fp) {
         fprintf(stderr, "ouverture impossible : %s\n", name_fp);
     }else {
-        while (fscanf(fp, "%ld %d %llu", &jid, &w, &T) == 3) {    if (jid >= 0 && jid < nb_leaf && !done[jid]) {
-                done[jid] = 1; ndone++;
-                total += (u64)w * T;
+        char line[200] ;
+        while (fgets(line,200,fp)) {
+            if (line[0] != '#') {
+                if (sscanf(line, "%ld %d %llu", &jid, &w, &T) == 3) {
+                    if (jid >= 0 && jid < nb_leaf && !done[jid]) {
+                        done[jid] = 1; ndone++;
+                        total += (u64)w * T;
+                    }
+                }
             }
         }
     }
@@ -463,15 +571,23 @@ void compute_job( const char *fileName,const typeRemCov *rem0,const Stage *ST1,c
     FILE *fp = fopen(fname, "r");
     if (fp) {
         long jid; int w; u64 T;
-        while (fscanf(fp, "%ld %d %llu", &jid, &w, &T) == 3)
-            if (jid >= 0 && jid < nb_leaf) { done[jid] = 1; nskip++; }
+        char line[200] ;
+        while (fgets(line,200,fp)) {
+            if (line[0] != '#') {
+                if (sscanf(line, "%ld %d %llu", &jid, &w, &T) == 3) {
+                    if (jid >= 0 && jid < nb_leaf) {
+                        done[jid] = 1; nskip++;
+                    }
+                }
+            }
+        }
         fclose(fp);
     }
     print_info(ST1,ST2); fflush(stdout);
     printf(" fichier %s, deja faits : %ld\n", fname, nskip);
     fp = fopen(fname, "a");
     if (!fp) { perror("res"); return ; }
-    int freq_ndo = (nb_leaf / 200) +1  ;
+    int freq_ndo = (nb_leaf / 100) +1  ;
     // if (freq_ndo==0) freq_ndo= 1;
     for (long id = 0; id < nb_leaf; id ++) {
         if (done[id]) continue;
@@ -485,6 +601,8 @@ void compute_job( const char *fileName,const typeRemCov *rem0,const Stage *ST1,c
                    (long)(time(NULL) - t0), ndo, id);
         }
     }
+    fprintf(fp,"#[%lds] %ld jobs faits dans cette session %s (dernier id %ld)\n",
+           (long)(time(NULL) - t0), ndo,CIBLE_NAME, nb_leaf);
     fclose(fp);
     check_sum(nb_leaf,fname ) ;
 }
