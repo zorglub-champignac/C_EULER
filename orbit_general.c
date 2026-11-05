@@ -121,7 +121,7 @@ static int gen_group(int lo, int m, int perms[][8])
 // perm5_W4 CIBLE = 1
 // perm6_W6 CIBLE = 2
 
-#define CIBLE 11
+#define CIBLE 14
 
 #if CIBLE == 1
 #   define CIBLE_NAME  "perm5_W4"
@@ -244,6 +244,39 @@ static int gen_group(int lo, int m, int perms[][8])
 #   define G_PERM2 2
 #   define NBPERM2 2
 #   define nbRemT 32  // NbTriplets - MAXT - SIZE_W2  56-(20+4)
+#elif CIBLE == 12
+#   define CIBLE_NAME  "perm6_W14"
+#   define PERM1   6  // permutation de [012..5[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 14
+#   define LIST_W2 {{0,1,6},{0,2,6},{0,3,6},{0,4,6},{0,1,7},{0,2,7},{0,3,7},{0,4,7},{1,2,6},{1,3,6},{1,2,7},{1,3,7},{2,3,6},{2,3,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 22  // NbTriplets - MAXT - SIZE_W2  56-(20+14)
+#elif CIBLE == 13
+#   define CIBLE_NAME  "perm6_W4e"
+#   define PERM1   6  // permutation de [012..5[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 4
+#   define LIST_W2 {{0,4,6},{0,4,7},{1,5,6},{1,5,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 32  // NbTriplets - MAXT - SIZE_W2  56-(20+4)
+#elif CIBLE == 14
+#   define CIBLE_NAME  "perm6_W2"
+#   define PERM1   6  // permutation de [012..5[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 2
+#   define LIST_W2 {{0,4,6},{0,4,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 34  // NbTriplets - MAXT - SIZE_W2  56-(20+2)
 
 #endif
 
