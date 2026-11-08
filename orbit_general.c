@@ -121,7 +121,7 @@ static int gen_group(int lo, int m, int perms[][8])
 // perm5_W4 CIBLE = 1
 // perm6_W6 CIBLE = 2
 
-#define CIBLE 14
+#define CIBLE 20
 
 #if CIBLE == 1
 #   define CIBLE_NAME  "perm5_W4"
@@ -277,6 +277,95 @@ static int gen_group(int lo, int m, int perms[][8])
 #   define G_PERM2 2
 #   define NBPERM2 2
 #   define nbRemT 34  // NbTriplets - MAXT - SIZE_W2  56-(20+2)
+#elif CIBLE == 15
+#   define CIBLE_NAME  "perm6_W8b"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 8
+#   define LIST_W2 {{0,6,7},{0,1,6},{0,1,7},{0,2,6},{0,2,7},{1,2,6},{1,2,7},{1,6,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 28  // NbTriplets - MAXT - SIZE_W2  56-(20+8)
+
+#elif CIBLE == 16
+#   define CIBLE_NAME  "perm6_W12a"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 12
+#   define LIST_W2 {{0,1,6},{0,2,6},{0,3,6},{0,1,7},{0,2,7},{0,3,7},{1,2,6},{1,2,7},{0,6,7},{1,6,7},{2,6,7},{3,6,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 24  // NbTriplets - MAXT - SIZE_W2  56-(20+12)
+#elif CIBLE == 17
+#   define CIBLE_NAME  "perm6_W12b"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 12
+#   define LIST_W2 {{0,1,6},{0,1,7},{0,2,6},{0,2,7},{0,3,6},{0,3,7},{1,2,6},{1,2,7},{1,3,6},{1,3,7},{2,3,6},{2,3,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 24  // NbTriplets - MAXT - SIZE_W2  56-(20+12)
+#elif CIBLE == 18
+#   define CIBLE_NAME  "perm6_W4f"
+#   define PERM1 6  // permutation de [012..4[
+#   define NBPERM1 720 //5!
+#   define MAXT   20  // 6x5x4/3
+#   define SIZE_W2 4
+#   define LIST_W2 {{0,4,6},{0,4,7},{2,5,6},{2,5,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 32  // NbTriplets - MAXT - SIZE_W2  56-(20+4)
+#elif CIBLE == 19
+#   define CIBLE_NAME  "perm6_W8c"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 8
+#   define LIST_W2 {{0,1,6},{0,1,7},{0,2,6},{0,2,7},{1,2,6},{1,2,7},{0,3,6},{0,3,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 28  // NbTriplets - MAXT - SIZE_W2  56-(20+8)
+#elif CIBLE == 20
+#   define CIBLE_NAME  "perm6_W9"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 9
+#   define LIST_W2 {{0,6,7},{1,6,7},{2,6,7},{0,1,6},{0,1,7},{0,2,6},{0,2,7},{1,2,6},{1,2,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 27  // NbTriplets - MAXT - SIZE_W2  56-(20+9)
+#elif CIBLE == 21
+#   define CIBLE_NAME  "perm6_W12c"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 12
+#   define LIST_W2 {{0,6,7},{1,6,7},{2,6,7},{3,6,7},{0,1,6},{0,1,7},{0,2,6},{0,2,7},{0,3,6},{0,3,7},{1,2,6},{1,2,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 24  // NbTriplets - MAXT - SIZE_W2  56-(20+12)
+#elif CIBLE == 22
+#   define CIBLE_NAME  "perm6_W1"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 8
+#   define LIST_W2 {{0,1,6},{0,2,6},{0,3,6},{0,4,6},{1,2,6},{1,3,6},{1,4,6},{1,5,6}}
+#   define PERM2   6
+#   define G_PERM2 1
+#   define NBPERM2 1
+#   define nbRemT 28  // NbTriplets - MAXT - SIZE_W2  56-(20+8)
 
 #endif
 
@@ -541,20 +630,21 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
     return T;
 }
 /* -------------------------------------------------------- main */
-static void print_info(const Stage *ST1,const Stage *ST2)
+static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2)
 {
     long  tw1 = 0, tw2 = 0, full = 0;
     for (long i = 0; i < ST1->nleaf; i++) { tw1 += ST1->leafs[i].weight; if (ST1->leafs[i].weight == ST1->nbPerm) full++; }
     for (long i = 0; i < ST2->nleaf; i++) tw2 += ST2->leafs[i].weight;
-    printf("Etage 1 : %ld affectations faisables de W1 (%d triplets), %ld orbites sous S5 "
+    fprintf(fout,"# Etage 1 : %ld affectations faisables de W1 (%d triplets), %ld orbites sous S5 "
            "(somme poids = %ld, orbites pleines de %d : %ld)\n", ST1->wAssign,ST1->nbT, ST1->nleaf, tw1,ST1->nbPerm, full);
-    printf("Etage 2 : %ld affectations faisables de W2 (%d triplets), %ld orbites sous S2 "
+    fprintf(fout,"# Etage 2 : %ld affectations faisables de W2 (%d triplets), %ld orbites sous S2 "
            "(somme poids = %ld)\n", ST2->wAssign,ST2->nbT, ST2->nleaf, tw2);
-    printf("Nombre de jobs (representants de l'etage 1) = %ld ; sous-comptages par job = %ld\n",
+    fprintf(fout,"# Nombre de jobs (representants de l'etage 1) = %ld ; sous-comptages par job = %ld\n",
            ST1->nleaf, ST2->nleaf);
-    printf("Gain nominal sur les configurations de depart : %.1f\n",
+    fprintf(fout,"# Gain nominal sur les configurations de depart : %.1f\n",
            (double)ST1->wAssign * ST2->wAssign / ((double)ST1->nleaf * ST2->nleaf));
-    printf("Triplets restants a parcourir : %d\n", nbRemT);
+    fprintf(fout,"# Triplets restants a parcourir : %d\n", nbRemT);
+    fflush(fout);
 }
 void check_sum(long nb_leaf,char *name_fp ) {
     char *done = (char *)calloc((size_t)nb_leaf, 1);
@@ -590,7 +680,7 @@ void check_sum(long nb_leaf,char *name_fp ) {
 
 }
 
-void compute_job( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)   {
+void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)   {
     long nb_leaf = ST1->nleaf;
     char fname[64];
     time_t t0 = time(NULL);
@@ -616,22 +706,28 @@ void compute_job( const char *fileName,const typeRemCov *rem0,const Stage *ST1,c
         }
         fclose(fp);
     }
-    print_info(ST1,ST2); fflush(stdout);
-    printf(" fichier %s, deja faits : %ld\n", fname, nskip);
+    print_info(stdout,ST1,ST2);
     fp = fopen(fname, "a");
     if (!fp) { perror("res"); return ; }
+    print_info(fp,ST1,ST2);
+    printf(" fichier %s, deja faits : %ld\n", fname, nskip);
     int freq_ndo = (nb_leaf / 100) +1  ;
     // if (freq_ndo==0) freq_ndo= 1;
-    for (long id = 0; id < nb_leaf; id ++) {
+    int mod_ndo = 0;
+    //for (long id = 0; id < nb_leaf; id ++) {
+    for (long id = nb_leaf-1; id >= 0; id --) {
         if (done[id]) continue;
         u64 T = run_job(id,rem0,ST1,ST2);
         fprintf(fp, "%ld %d %llu\n", id, (int)ST1->leafs[id].weight, T);
-        ndo++;
-//        if (ndo % 2000 == 0) {
-        if (ndo % freq_ndo == 0) {
+ //       ndo++;
+        mod_ndo++;
+//        if (ndo % freq_ndo == 0) {
+        if (mod_ndo == freq_ndo) {
             fflush(fp);
             printf("[%lds] %ld jobs faits dans cette session (dernier id %ld)\n",
-                   (long)(time(NULL) - t0), ndo, id);
+                   (long)(time(NULL) - t0), ndo+mod_ndo, id);
+            ndo += mod_ndo;
+            mod_ndo = 0 ;
         }
     }
     fprintf(fp,"#[%lds] %ld jobs faits dans cette session %s (dernier id %ld)\n",
@@ -667,7 +763,7 @@ int main(int argc, char **argv){
     build_remT(remT,ST1,ST2);
     fprintf(stderr, "[orbites construites en %.1f s]\n", (double)(clock() - c0) / CLOCKS_PER_SEC);
 
-    if (argc >= 2 && strcmp(argv[1], "--info") == 0) { print_info(ST1,ST2); return 0; }
+    if (argc >= 2 && strcmp(argv[1], "--info") == 0) { print_info(stdout,ST1,ST2); return 0; }
     if (argc >= 3 && strcmp(argv[1], "--sum") == 0) { check_sum(ST1->nleaf,argv[2] ) ; return 0; }
 
     static typeRemCov rem0[nbPairs] = {0};
@@ -679,6 +775,6 @@ int main(int argc, char **argv){
     if ( argc > 1) { strcpy(fname, argv[1]); } else {
         sprintf(fname, "res_%s_%d.txt",CIBLE_NAME, 0);
     }
-    compute_job(fname,rem0,ST1,ST2) ;
+    compute_jobs(fname,rem0,ST1,ST2) ;
     return 0;
 }
