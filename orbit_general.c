@@ -600,7 +600,10 @@ static void bt(const int k)
         rem[pa]++; rem[pb]++; rem[pc]++;
     }
 }
-/* un job = un representant de l'etage 1 ; retourne T = somme w2*count */
+// un job = un representant de l'etage 1 ; retourne T = somme w2*count
+// rem0 contient les paires disponibles pour les triplets non developpés
+// rem0 est fixe
+// les triplets developpés sont fixe : ceux dans ST1 (20 si permut [01..6[) et ceux ds la liste de ST2
 static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2)
 {
     typeRemCov base[nbPairs];
@@ -617,12 +620,17 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
         int ok = 1;
         memcpy(cov, base, sizeof(base));
         for (int i = 0; i < SIZE_W2; i++) {
-            cov[tp[W2[i]][r2->choice[i]]]++;
+            int p = tp[W2[i]][r2->choice[i]] ;
+            if (cov[p]>=2 ) { ok = 0; break ;}
+            cov[p]++;
         }
-        memcpy(rem, rem0, nbPairs *sizeof(typeRemCov));
-        for (int p = 0; p < nbPairs; p++)
-            if (cov[p] > 2 || cov[p] + rem[p] < 2) { ok = 0; break; }
+        if (ok) {
+            for (int p =0; p< nbPairs;  p++) {
+                if (cov[p] + rem0[p] < 2) { ok = 0; break; }
+            }
+        }
         if (!ok) continue;
+        memcpy(rem, rem0, nbPairs *sizeof(typeRemCov));
         cnt = 0;
         bt(0);
         T += (u64)r2->weight * cnt;
@@ -714,8 +722,8 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
     int freq_ndo = (nb_leaf / 100) +1  ;
     // if (freq_ndo==0) freq_ndo= 1;
     int mod_ndo = 0;
-    //for (long id = 0; id < nb_leaf; id ++) {
-    for (long id = nb_leaf-1; id >= 0; id --) {
+    for (long id = 0; id < nb_leaf; id ++) {
+    // for (long id = nb_leaf-1; id >= 0; id --) {
         if (done[id]) continue;
         u64 T = run_job(id,rem0,ST1,ST2);
         fprintf(fp, "%ld %d %llu\n", id, (int)ST1->leafs[id].weight, T);
