@@ -55,8 +55,9 @@ static int tp[nbTriplets][3]; // liste des index de paires associées au triplet
 /* ------------------------------------------------ backtracking */
 
 
-
-static typeRemCov  remT[nbRemT][3]    ;
+typedef typeRemCov remT_Type[nbRemT][3];
+//static typeRemCov  remT[nbRemT][3]    ;
+static remT_Type remT ;
 static typeRemCov  cov[nbPairs]  ;
 static typeRemCov  rem[nbPairs] ;
 
@@ -91,7 +92,7 @@ static Stage *stage_build(Stage * S,int perms[][8]) ;
 void stage_phase1(Stage *S) ;
 //static void  build_remT(typeRemCov pt_remT[][3],const Stage *ST1,const Stage *ST2) ;
 void  build_remT(const Stage *ST1,const Stage *ST2) ;
-const typeRemCov *   build_rem0(const typeRemCov remT[][3]) ;
+const typeRemCov *   build_rem0(const remT_Type remT) ;
 
 void check_sum(long nb_leaf,char *name_fp ) ;
 static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2) ;
@@ -495,9 +496,9 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
  //   for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
 //    return rem0 ;
 }
-const typeRemCov *   build_rem0(const typeRemCov remT[][3]) {
+const typeRemCov *   build_rem0(const remT_Type remT0) {
     static typeRemCov rem0[nbRemT];
-    for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
+    for (int i = 0; i < nbRemT; i++) { rem0[remT0[i][0]]++; rem0[remT0[i][1]]++; rem0[remT0[i][2]]++; }
     return rem0 ;
 }
 /****************************** outils divers ********************************************/
