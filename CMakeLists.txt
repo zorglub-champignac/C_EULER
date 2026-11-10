@@ -22,4 +22,5 @@ add_executable(solve-v3-fix_all solve-v3-fix_all.c)
 add_executable(orbit_v0 orbit_v0.c)
 add_executable(orbit_count6 orbit_count6.c)
 add_executable(orbit_count6_v2 orbit_count6_v2.c)
-add_executable(orbit_general orbit_general.c)
+add_executable(orbit_general orbit_general.c
+        cible.h)
