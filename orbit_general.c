@@ -57,7 +57,8 @@ static int tp[nbTriplets][3]; // liste des index de paires associées au triplet
 
 typedef typeRemCov remT_Type[nbRemT][3];
 //static typeRemCov  remT[nbRemT][3]    ;
-static remT_Type remT ;
+// static remT_Type remT ;
+static remT_Type   remT_bt ;
 static typeRemCov  cov[nbPairs]  ;
 static typeRemCov  rem[nbPairs] ;
 
@@ -91,7 +92,7 @@ static Stage * build_ST2(void) ;
 static Stage *stage_build(Stage * S,int perms[][8]) ;
 void stage_phase1(Stage *S) ;
 //static void  build_remT(typeRemCov pt_remT[][3],const Stage *ST1,const Stage *ST2) ;
-void  build_remT(const Stage *ST1,const Stage *ST2) ;
+void build_remT(const Stage *ST1,const Stage *ST2) ;
 const typeRemCov *   build_rem0(const remT_Type remT) ;
 
 void check_sum(long nb_leaf,char *name_fp ) ;
@@ -114,7 +115,7 @@ int main(int argc, char **argv){
  //   static typeRemCov rem0[nbPairs] = {0};
  //   for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
     build_remT(ST1,ST2);
-    const typeRemCov * rem0 = build_rem0(remT);
+    const typeRemCov * rem0 = build_rem0(remT_bt);
     // ************* phase 1 pour ST2  puis ST1 ************
     // developpement des triplets par recursion de stage_dfs () => leafs
     // stage_leaf :
@@ -216,7 +217,7 @@ static void stage_leaf(Stage *S)
 
 /**** BEGIN ************************** phase 2 (jobs) *****************************/
 static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2) ;
-static void bt(const int k) ;
+static void bt(int k) ;
 
 void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)   {
     long nb_leaf = ST1->nleaf;
@@ -317,7 +318,7 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
 static void bt(const int k)
 {
     if (k == nbRemT) { cnt++; return ; }
-    int const pa = remT[k][0]; int const pb = remT[k][1]; int const pc = remT[k][2];
+    int const pa = remT_bt[k][0]; int const pb = remT_bt[k][1]; int const pc = remT_bt[k][2];
     if (cov[pa] + rem[pa] >= 2 && cov[pb] + rem[pb] >= 2 && cov[pc] + rem[pc] >= 2) {
         rem[pa]--; rem[pb]--; rem[pc]--;
 
@@ -486,13 +487,12 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
             if (!used[i]) {
                 used[i] = 1;
                 for (uint8_t k = 0; k < 3; k++) {
-                    remT[j][k] = tp[i][k];
+                    remT_bt[j][k] = tp[i][k] ;
                 }
                 break ;
             }
         }
     }
-    return ;
  //   for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
 //    return rem0 ;
 }
