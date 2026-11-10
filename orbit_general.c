@@ -56,9 +56,8 @@ static int tp[nbTriplets][3]; // liste des index de paires associées au triplet
 
 
 typedef typeRemCov remT_Type[nbRemT][3];
-//static typeRemCov  remT[nbRemT][3]    ;
-// static remT_Type remT ;
 static remT_Type   remT_bt ;
+//static remT_Type * remT_bt = NULL;
 static typeRemCov  cov[nbPairs]  ;
 static typeRemCov  rem[nbPairs] ;
 
@@ -91,8 +90,8 @@ static Stage * build_ST1(void) ;
 static Stage * build_ST2(void) ;
 static Stage *stage_build(Stage * S,int perms[][8]) ;
 void stage_phase1(Stage *S) ;
-//static void  build_remT(typeRemCov pt_remT[][3],const Stage *ST1,const Stage *ST2) ;
 void build_remT(const Stage *ST1,const Stage *ST2) ;
+//const remT_Type * build_remT(const Stage *ST1,const Stage *ST2) ;
 const typeRemCov *   build_rem0(const remT_Type remT) ;
 
 void check_sum(long nb_leaf,char *name_fp ) ;
@@ -110,10 +109,10 @@ int main(int argc, char **argv){
     // ************* construction deterministe   ************
     Stage * ST1 = build_ST1(); printf("buid_st1 OK\n");
     Stage * ST2 = build_ST2();  printf("buid_st2 OK\n");
- //   build_remT(ST1,ST2);
     //rem0 est deterministe : depend des seulement des triplets de W1 et de W2.
  //   static typeRemCov rem0[nbPairs] = {0};
  //   for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
+    //remT_bt = build_remT(ST1,ST2);
     build_remT(ST1,ST2);
     const typeRemCov * rem0 = build_rem0(remT_bt);
     // ************* phase 1 pour ST2  puis ST1 ************
@@ -476,9 +475,9 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
     return S;
 }
 
-    void  build_remT(const Stage *ST1,const Stage *ST2) {
- //   static typeRemCov rem0[nbRemT];
-  //  static typeRemCov RemT[nbRemT][3] ;
+// const remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
+void build_remT(const Stage *ST1,const Stage *ST2) {
+    //  static typeRemCov remT[nbRemT][3] ;
     int used[nbTriplets] = {0};
     for (int i = 0; i < MAXT; i++) used[ST1->W[i]] = 1;
     for (int i = 0; i < SIZE_W2; i++) used[ST2->W[i]] = 1;
@@ -493,8 +492,6 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
             }
         }
     }
- //   for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
-//    return rem0 ;
 }
 const typeRemCov *   build_rem0(const remT_Type remT0) {
     static typeRemCov rem0[nbRemT];
