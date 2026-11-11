@@ -4,7 +4,7 @@
 
 #ifndef C_EULER_CIBLE_H
 #define C_EULER_CIBLE_H
-#define CIBLE 24
+#define CIBLE 17
 
 #if CIBLE == 1
 #   define CIBLE_NAME  "perm5_W4"

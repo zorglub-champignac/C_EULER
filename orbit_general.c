@@ -64,14 +64,14 @@ typedef struct {
 } Leaf;
 
 typedef struct {
-    uint8_t recip[MAXT] ;
-    uint8_t choiceByP[MAXT][3] ;
-}Perm;
+    uint8_t recip[MAXT+SIZE_W2] ;
+    uint8_t choiceByP[MAXT+SIZE_W2][3] ;
+} Perm;
 typedef struct {
     int nbT, nbPerm;                          // nbT : nombre de triplets, nbPerm : nombre de permutations.
     const int *W;                       // liste des triplets (invariant)
     int8_t cov[nbPairs];                        // couverture des paires
-    uint8_t curChoice[MAXT];             // choix pour chaque triplet (a,b,c) de la paire associée (0 = (a,b) , 1=(a,c) 2=(b,c)
+    uint8_t curChoice[MAXT+SIZE_W2];             // choix pour chaque triplet (a,b,c) de la paire associée (0 = (a,b) , 1=(a,c) 2=(b,c)
     Leaf *leafs; long nleaf, cap;
     long wAssign;                       // poids total du developpement
     int killer;
@@ -224,6 +224,8 @@ static void stage_leaf(Stage *S)
 
 /**** BEGIN ************************** phase 2 (jobs) *****************************/
 static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2) ;
+static clock_t jobs_total = 0;
+static clock_t bt_total = 0;
 void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)   {
     long nb_leaf = ST1->nleaf;
     char fname[64];
@@ -266,8 +268,8 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
         mod_ndo++;
         if (mod_ndo == freq_ndo) {
             fflush(fp);
-            printf("[%lds] %ld jobs faits dans cette session (dernier id %ld)\n",
-                   (long)(time(NULL) - t0), ndo+mod_ndo, id);
+            printf("[%lds](%.3f,%.3f)T=%lld %ld jobs faits dans cette session (dernier id %ld)\n",
+                   (long)(time(NULL) - t0),jobs_total /(double) CLK_TCK,bt_total/(double) CLK_TCK,T, ndo+mod_ndo, id);
             ndo += mod_ndo;
             mod_ndo = 0 ;
         }
@@ -286,8 +288,10 @@ static u64 cnt ;
 // rem0 contient les paires disponibles pour les triplets non developpés
 // rem0 est fixe
 // les triplets developpés sont fixe : ceux dans ST1 (20 si permut [01..6[) et ceux ds la liste de ST2
+
 static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2)
 {
+    clock_t deb = clock() ;
     typeRemCov cov1[nbPairs];
     u64 T = 0;
     const Leaf *r1 = &ST1->leafs[id];
@@ -313,10 +317,15 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
         }
         if (!ok) continue;
         memcpy(rem, rem0, nbPairs *sizeof(typeRemCov));
+        clock_t deb_bt = clock() ;
         cnt = 0;
         bt(0);
         T += (u64)r2->weight * cnt;
+        clock_t end_bt = clock() ;
+        bt_total += end_bt - deb_bt;
     }
+    clock_t end = clock();
+    jobs_total += end- deb ;
     return T;
 }
 // recursif, developpe les triplets complementaires (nbRemT) en phase 2 apres ceux developpes par les permutations
@@ -327,7 +336,7 @@ static void bt(const int k)
 {
     static int phase_init = 1;
     static remT_Type remT_bt ;
-    if (k == nbRemT) { cnt++; return ; }
+    if (k == nbRemT) { cnt++;  return ; }
     if (phase_init) {
         phase_init = 0 ;
         memcpy(remT_bt,get_remT(NULL),sizeof(remT_bt)) ;
