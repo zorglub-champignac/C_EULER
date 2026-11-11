@@ -56,7 +56,9 @@ static typeRemCov tp[nbTriplets][3]; // liste des index de paires associées au 
 
 
 typedef typeRemCov remT_Type[nbRemT][3];
-//static remT_Type   * remT_bt = NULL ;
+// static remT_Type   * remT_bt = NULL ;
+
+
 
 /************************* structures **********************************/
 typedef struct {
@@ -332,18 +334,17 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
 // va de niveau 0 a nbRemT (56-(20+6)
 // calcule cnt le nombre de developpements possibles.
 // Utilise dans la phase 2 (jobs)
+static int bt_init = 1 ;
+static remT_Type remT_bt = {0};
 static void bt(const int k)
 {
-    static int phase_init = 1;
-    static remT_Type remT_bt ;
-    if (k == nbRemT) { cnt++;  return ; }
-    if (phase_init) {
-        phase_init = 0 ;
-        remT_Type *first_remT = get_remT(NULL) ;
-        memcpy(&remT_bt,first_remT,sizeof(remT_Type)) ;
+    if (bt_init) {
+        bt_init = 0 ;
+        memcpy(&remT_bt,get_remT(NULL),sizeof(remT_Type)) ;
         return ;
     }
-    int const pa = (remT_bt)[k][0]; int const pb = (remT_bt)[k][1]; int const pc = (remT_bt)[k][2];
+    if (k == nbRemT) { cnt++; return ; }
+    int const pa = remT_bt[k][0]; int const pb = remT_bt[k][1]; int const pc = remT_bt[k][2];
     if (cov[pa] + rem[pa] >= 2 && cov[pb] + rem[pb] >= 2 && cov[pc] + rem[pc] >= 2) {
         rem[pa]--; rem[pb]--; rem[pc]--;
 
