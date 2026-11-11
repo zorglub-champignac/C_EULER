@@ -56,7 +56,7 @@ static int tp[nbTriplets][3]; // liste des index de paires associées au triplet
 
 
 typedef typeRemCov remT_Type[nbRemT][3];
-static remT_Type   remT_bt = {0};
+static remT_Type   * remT_bt = NULL ;
 //static remT_Type * remT_bt = NULL;
 static typeRemCov  cov[nbPairs]  ;
 static typeRemCov  rem[nbPairs] ;
@@ -90,9 +90,9 @@ static Stage * build_ST1(void) ;
 static Stage * build_ST2(void) ;
 static Stage *stage_build(Stage * S,int perms[][8]) ;
 void stage_phase1(Stage *S) ;
-void build_remT(const Stage *ST1,const Stage *ST2) ;
-//const remT_Type * build_remT(const Stage *ST1,const Stage *ST2) ;
-const typeRemCov *   build_rem0(const remT_Type remT) ;
+//void build_remT(const Stage *ST1,const Stage *ST2) ;
+remT_Type * build_remT(const Stage *ST1,const Stage *ST2) ;
+const typeRemCov *   build_rem0(const remT_Type * remT) ;
 
 void check_sum(long nb_leaf,char *name_fp ) ;
 static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2) ;
@@ -113,7 +113,7 @@ int main(int argc, char **argv){
  //   static typeRemCov rem0[nbPairs] = {0};
  //   for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
     //remT_bt = build_remT(ST1,ST2);
-    build_remT(ST1,ST2);
+    remT_bt = build_remT(ST1,ST2);
     const typeRemCov * rem0 = build_rem0(remT_bt);
     // ************* phase 1 pour ST2  puis ST1 ************
     // developpement des triplets par recursion de stage_dfs () => leafs
@@ -317,7 +317,7 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
 static void bt(const int k)
 {
     if (k == nbRemT) { cnt++; return ; }
-    int const pa = remT_bt[k][0]; int const pb = remT_bt[k][1]; int const pc = remT_bt[k][2];
+    int const pa = (*remT_bt)[k][0]; int const pb = (*remT_bt)[k][1]; int const pc = (*remT_bt)[k][2];
     if (cov[pa] + rem[pa] >= 2 && cov[pb] + rem[pb] >= 2 && cov[pc] + rem[pc] >= 2) {
         rem[pa]--; rem[pb]--; rem[pc]--;
 
@@ -476,11 +476,13 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
 }
 
 // const remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
-
-void build_remT(const Stage *ST1,const Stage *ST2) {
+remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
     //  static typeRemCov remT[nbRemT][3] ;
     //
-    memset(remT_bt,0,sizeof(remT_Type));
+    int size = sizeof(remT_Type) ;
+    printf(" Size remT=%d\n",size); fflush (stdout);
+    remT_Type * remT = calloc(1, sizeof(remT_Type));
+    // memset(remT_bt,0,sizeof(remT_Type));
     int used[nbTriplets] = {0};
     for (int i = 0; i < MAXT; i++) used[ST1->W[i]] = 1;
     for (int i = 0; i < SIZE_W2; i++) used[ST2->W[i]] = 1;
@@ -489,19 +491,21 @@ void build_remT(const Stage *ST1,const Stage *ST2) {
             if (!used[i]) {
                 used[i] = 1;
                 for (uint8_t k = 0; k < 3; k++) {
-                    remT_bt[j][k] = tp[i][k] ;
+                //    remT_bt[j][k] = tp[i][k] ;
+                    (*remT)[j][k]  = tp[i][k];
                 }
                 break ;
             }
         }
     }
+    return remT ;
  //   int size = sizeof(remT_bt) ;
  //   memcpy(remT_bt,remT,size);
     //remT_bt = remT ;
 }
-const typeRemCov *   build_rem0(const remT_Type remT0) {
+const typeRemCov *   build_rem0(const remT_Type * remT0) {
     static typeRemCov rem0[nbRemT];
-    for (int i = 0; i < nbRemT; i++) { rem0[remT0[i][0]]++; rem0[remT0[i][1]]++; rem0[remT0[i][2]]++; }
+    for (int i = 0; i < nbRemT; i++) { rem0[(*remT0)[i][0]]++; rem0[(*remT0)[i][1]]++; rem0[(*remT0)[i][2]]++; }
     return rem0 ;
 }
 /****************************** outils divers ********************************************/
