@@ -47,22 +47,15 @@ typedef int32_t typeRemCov ;
 #define nbTriplets 56
 #include "cible.h"
 /* ---------------------------------------------------------------- base */
-static int pid_[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )
-static int P2[nbPairs][2]; // liste des paires
-static int tri[nbTriplets][3]; // liste des triplets
-static int tidx[8][8][8];//  tableau des index [0,56[ des triplets ordonnés (a<b<c => index )
-static int tp[nbTriplets][3]; // liste des index de paires associées au triplet pid[a][b], pid[a][c], pid[b][c]
+static typeRemCov pid_[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )
+static typeRemCov P2[nbPairs][2]; // liste des paires
+static typeRemCov tri[nbTriplets][3]; // liste des triplets
+static typeRemCov tidx[8][8][8];//  tableau des index [0,56[ des triplets ordonnés (a<b<c => index )
+static typeRemCov tp[nbTriplets][3]; // liste des index de paires associées au triplet pid[a][b], pid[a][c], pid[b][c]
 /* ------------------------------------------------ backtracking */
 
 
 typedef typeRemCov remT_Type[nbRemT][3];
-static remT_Type   * remT_bt = NULL ;
-//static remT_Type * remT_bt = NULL;
-static typeRemCov  cov[nbPairs]  ;
-static typeRemCov  rem[nbPairs] ;
-
-static u64 cnt ;
-
 
 /************************* structures **********************************/
 typedef struct {
@@ -101,6 +94,16 @@ void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *
 static int gen_group(int lo, int m, int perms[][8]) ;
 
 void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
+remT_Type * get_remT(remT_Type * remT) {
+    static remT_Type * initRemT = NULL ;
+    if ( remT == NULL ) {
+        return initRemT;
+    } else {
+        initRemT = remT ;
+        return remT ;
+    }
+}
+static void bt(int k) ;
 
 int main(int argc, char **argv){
     const clock_t c0 = clock();
@@ -113,8 +116,13 @@ int main(int argc, char **argv){
  //   static typeRemCov rem0[nbPairs] = {0};
  //   for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
     //remT_bt = build_remT(ST1,ST2);
-    remT_bt = build_remT(ST1,ST2);
-    const typeRemCov * rem0 = build_rem0(remT_bt);
+    const typeRemCov * rem0 ;
+    {
+        remT_Type * remT = build_remT(ST1,ST2); // remT temporaire
+        rem0 = build_rem0(remT); // calcul de rem0 a partir de remT
+        get_remT(remT); // initialise get_remT avec pour remT pour bt
+        bt(-1); // premier appel de bt qui utilise get_remT pour recuperer remT en lovcal
+    }
     // ************* phase 1 pour ST2  puis ST1 ************
     // developpement des triplets par recursion de stage_dfs () => leafs
     // stage_leaf :
@@ -216,8 +224,6 @@ static void stage_leaf(Stage *S)
 
 /**** BEGIN ************************** phase 2 (jobs) *****************************/
 static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2) ;
-static void bt(int k) ;
-
 void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)   {
     long nb_leaf = ST1->nleaf;
     char fname[64];
@@ -257,9 +263,7 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
         if (done[id]) continue;
         u64 T = run_job(id,rem0,ST1,ST2);
         fprintf(fp, "%ld %d %llu\n", id, (int)ST1->leafs[id].weight, T);
-        //       ndo++;
         mod_ndo++;
-        //        if (ndo % freq_ndo == 0) {
         if (mod_ndo == freq_ndo) {
             fflush(fp);
             printf("[%lds] %ld jobs faits dans cette session (dernier id %ld)\n",
@@ -273,6 +277,11 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
     fclose(fp);
     check_sum(nb_leaf,fname ) ;
 }
+// donnees partagées par run_job() et bt()
+static typeRemCov  cov[nbPairs] ;
+static typeRemCov  rem[nbPairs] ;
+static u64 cnt ;
+
 // un job = un representant de l'etage 1 ; retourne T = somme w2*count
 // rem0 contient les paires disponibles pour les triplets non developpés
 // rem0 est fixe
@@ -316,8 +325,15 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
 // Utilise dans la phase 2 (jobs)
 static void bt(const int k)
 {
+    static int phase_init = 1;
+    static remT_Type remT_bt ;
     if (k == nbRemT) { cnt++; return ; }
-    int const pa = (*remT_bt)[k][0]; int const pb = (*remT_bt)[k][1]; int const pc = (*remT_bt)[k][2];
+    if (phase_init) {
+        phase_init = 0 ;
+        memcpy(remT_bt,get_remT(NULL),sizeof(remT_bt)) ;
+        return ;
+    }
+    int const pa = (remT_bt)[k][0]; int const pb = (remT_bt)[k][1]; int const pc = (remT_bt)[k][2];
     if (cov[pa] + rem[pa] >= 2 && cov[pb] + rem[pb] >= 2 && cov[pc] + rem[pc] >= 2) {
         rem[pa]--; rem[pb]--; rem[pc]--;
 
@@ -445,8 +461,8 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
     const int *W = S->W ;
     for (int nP = 0; nP < S->nbPerm; nP++) { // boucle sur les permutations
         for (int i = 0; i < S->nbT; i++) { // boucle sur les triplets
-            int *t = tri[S->W[i]]; // on recupere le triplet
-            int gi = tidx[perms[nP][t[0]]][perms[nP][t[1]]][perms[nP][t[2]]]; // on applique la permutation
+            typeRemCov *t = tri[S->W[i]]; // on recupere le triplet
+            typeRemCov gi = tidx[perms[nP][t[0]]][perms[nP][t[1]]][perms[nP][t[2]]]; // on applique la permutation
             // et l'on recupere l'index correspondant du triplet associe
             int j ;
             for (j = 0; j < S->nbT; j++) if (S->W[j] == gi) break; // on recupere l'index du triplet associe
@@ -458,8 +474,8 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
             Perm *pe = &S->Pe[nP];
             pe->recip[j] = i; // i => j , on le note ds la correpondance inversée
             for (int8_t c = 0; c < 3; c++) { // boucle sur la paire associée
-                int p = tp[W[i]][c]; // paire associee pour W[i]
-                int q = pid_[perms[nP][P2[p][0]]][perms[nP][P2[p][1]]]; // q index de la paire en appliquant la permut g
+                typeRemCov p = tp[W[i]][c]; // paire associee pour W[i]
+                typeRemCov q = pid_[perms[nP][P2[p][0]]][perms[nP][P2[p][1]]]; // q index de la paire en appliquant la permut g
                 uint8_t k ;
                 for (k = 0; k < 3; k++) if (tp[W[j]][k] == q) break;
                 if (k == 3) {
@@ -499,9 +515,6 @@ remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
         }
     }
     return remT ;
- //   int size = sizeof(remT_bt) ;
- //   memcpy(remT_bt,remT,size);
-    //remT_bt = remT ;
 }
 const typeRemCov *   build_rem0(const remT_Type * remT0) {
     static typeRemCov rem0[nbRemT];
@@ -509,15 +522,7 @@ const typeRemCov *   build_rem0(const remT_Type * remT0) {
     return rem0 ;
 }
 /****************************** outils divers ********************************************/
-// retrouve l'index d'un triplet (a,b,c) non ordonné.
-static int tindex3(int a, int b, int c)
-{
-    int t;
-    if (a > b) { t = a; a = b; b = t; }
-    if (b > c) { t = b; b = c; c = t; }
-    if (a > b) { t = a; a = b; b = t; }
-    return tidx[a][b][c];
-}
+
 
 // retourne 0 ou 1 suivant que la permutation de n elements dans a[] est la derniere ou non
 // mais dans a[] la permutation suivante si ce n'est pas la derniere
