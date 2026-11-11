@@ -56,7 +56,7 @@ static int tp[nbTriplets][3]; // liste des index de paires associées au triplet
 
 
 typedef typeRemCov remT_Type[nbRemT][3];
-static remT_Type   remT_bt ;
+static remT_Type   remT_bt = {0};
 //static remT_Type * remT_bt = NULL;
 static typeRemCov  cov[nbPairs]  ;
 static typeRemCov  rem[nbPairs] ;
@@ -476,9 +476,11 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
 }
 
 // const remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
+
 void build_remT(const Stage *ST1,const Stage *ST2) {
     //  static typeRemCov remT[nbRemT][3] ;
-    static remT_Type remT = {0}  ;
+    //
+    memset(remT_bt,0,sizeof(remT_Type));
     int used[nbTriplets] = {0};
     for (int i = 0; i < MAXT; i++) used[ST1->W[i]] = 1;
     for (int i = 0; i < SIZE_W2; i++) used[ST2->W[i]] = 1;
@@ -487,14 +489,14 @@ void build_remT(const Stage *ST1,const Stage *ST2) {
             if (!used[i]) {
                 used[i] = 1;
                 for (uint8_t k = 0; k < 3; k++) {
-                    remT[j][k] = tp[i][k] ;
+                    remT_bt[j][k] = tp[i][k] ;
                 }
                 break ;
             }
         }
     }
-    int size = sizeof(remT_bt) ;
-    memcpy(remT_bt,remT,size);
+ //   int size = sizeof(remT_bt) ;
+ //   memcpy(remT_bt,remT,size);
     //remT_bt = remT ;
 }
 const typeRemCov *   build_rem0(const remT_Type remT0) {
