@@ -56,6 +56,7 @@ static typeRemCov tp[nbTriplets][3]; // liste des index de paires associées au 
 
 
 typedef typeRemCov remT_Type[nbRemT][3];
+//static remT_Type   * remT_bt = NULL ;
 
 /************************* structures **********************************/
 typedef struct {
@@ -64,14 +65,14 @@ typedef struct {
 } Leaf;
 
 typedef struct {
-    uint8_t recip[MAXT+SIZE_W2] ;
-    uint8_t choiceByP[MAXT+SIZE_W2][3] ;
-} Perm;
+    uint8_t recip[MAXT] ;
+    uint8_t choiceByP[MAXT][3] ;
+}Perm;
 typedef struct {
     int nbT, nbPerm;                          // nbT : nombre de triplets, nbPerm : nombre de permutations.
     const int *W;                       // liste des triplets (invariant)
     int8_t cov[nbPairs];                        // couverture des paires
-    uint8_t curChoice[MAXT+SIZE_W2];             // choix pour chaque triplet (a,b,c) de la paire associée (0 = (a,b) , 1=(a,c) 2=(b,c)
+    uint8_t curChoice[MAXT];             // choix pour chaque triplet (a,b,c) de la paire associée (0 = (a,b) , 1=(a,c) 2=(b,c)
     Leaf *leafs; long nleaf, cap;
     long wAssign;                       // poids total du developpement
     int killer;
@@ -288,7 +289,6 @@ static u64 cnt ;
 // rem0 contient les paires disponibles pour les triplets non developpés
 // rem0 est fixe
 // les triplets developpés sont fixe : ceux dans ST1 (20 si permut [01..6[) et ceux ds la liste de ST2
-
 static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2)
 {
     clock_t deb = clock() ;
@@ -339,7 +339,8 @@ static void bt(const int k)
     if (k == nbRemT) { cnt++;  return ; }
     if (phase_init) {
         phase_init = 0 ;
-        memcpy(remT_bt,get_remT(NULL),sizeof(remT_bt)) ;
+        remT_Type *first_remT = get_remT(NULL) ;
+        memcpy(&remT_bt,first_remT,sizeof(remT_Type)) ;
         return ;
     }
     int const pa = (remT_bt)[k][0]; int const pb = (remT_bt)[k][1]; int const pc = (remT_bt)[k][2];
