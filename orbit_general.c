@@ -284,7 +284,7 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
 }
 // donnees partagées par run_job() et bt()
 static typeRemCov  cov[nbPairs] ;
-static typeRemCov  rem[nbPairs] ;
+static typeRemCov rem_cov[nbPairs] ;
 static u64 cnt ;
 
 // un job = un representant de l'etage 1 ; retourne T = somme w2*count
@@ -315,10 +315,10 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
         if (ok) {
             for (int p =0; p< nbPairs;  p++) {
                 if (cov[p] + rem0[p] < 2) { ok = 0; break; }
+                rem_cov[p] = cov[p] + rem0[p] ;
             }
         }
         if (!ok) continue;
-        memcpy(rem, rem0, nbPairs *sizeof(typeRemCov));
         clock_t deb_bt = clock() ;
         cnt = 0;
         bt(0);
@@ -345,19 +345,18 @@ static void bt(const int k)
     }
     if (k == nbRemT) { cnt++; return ; }
     int const pa = remT_bt[k][0]; int const pb = remT_bt[k][1]; int const pc = remT_bt[k][2];
-    if (cov[pa] + rem[pa] >= 2 && cov[pb] + rem[pb] >= 2 && cov[pc] + rem[pc] >= 2) {
-        rem[pa]--; rem[pb]--; rem[pc]--;
-
-        if (cov[pa] < 2 && cov[pb] + rem[pb] >= 2 && cov[pc] + rem[pc] >= 2) { // pas encore de double attribution
-            cov[pa]++; bt(k + 1); cov[pa]--;
+    if (rem_cov[pa] >= 2 && rem_cov[pb] >= 2 &&  rem_cov[pc] >= 2) {
+        rem_cov[pa]-- ; rem_cov[pb]-- ; rem_cov[pc]-- ;
+        if (cov[pa] < 2 && rem_cov[pb] >= 2 && rem_cov[pc] >= 2) { // pas encore de double attribution
+                cov[pa]++;rem_cov[pa]++; bt(k + 1); cov[pa]--;rem_cov[pa]--;
         }
-        if (cov[pb] < 2 && cov[pa] + rem[pa] >= 2 && cov[pc] + rem[pc] >= 2) { // pas encore de double attribution
-            cov[pb]++; bt(k + 1); cov[pb]--;
+         if (cov[pb] < 2 && rem_cov[pa] >= 2 && rem_cov[pc] >= 2) { // pas encore de double attribution
+            cov[pb]++;rem_cov[pb]++; bt(k + 1); cov[pb]--;rem_cov[pb]--;
         }
-        if (cov[pc] < 2 && cov[pa] + rem[pa] >= 2 && cov[pb] + rem[pb] >= 2) { // pas encore de double attribution
-            cov[pc]++; bt(k + 1); cov[pc]--;
+        if (cov[pc] < 2 && rem_cov[pa] >= 2 && rem_cov[pb] >= 2) { // pas encore de double attribution
+            cov[pc]++;rem_cov[pc]++; bt(k + 1); cov[pc]--;rem_cov[pc]--;
         }
-        rem[pa]++; rem[pb]++; rem[pc]++;
+        rem_cov[pa]++ ; rem_cov[pb]++ ; rem_cov[pc]++ ;
     }
 }
 /***** END ************************* phase 2 (jobs) *****************************/
