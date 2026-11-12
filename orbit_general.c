@@ -506,8 +506,6 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
 remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
     //  static typeRemCov remT[nbRemT][3] ;
     //
-    int size = sizeof(remT_Type) ;
-    printf(" Size remT=%d\n",size); fflush (stdout);
     remT_Type * remT = calloc(1, sizeof(remT_Type));
     // memset(remT_bt,0,sizeof(remT_Type));
     int used[nbTriplets] = {0};
@@ -518,7 +516,6 @@ remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
             if (!used[i]) {
                 used[i] = 1;
                 for (uint8_t k = 0; k < 3; k++) {
-                //    remT_bt[j][k] = tp[i][k] ;
                     (*remT)[j][k]  = tp[i][k];
                 }
                 break ;
