@@ -1,5 +1,29 @@
 /*
- * orbit_count7_v1.c
+ * A) Initialisation de certains tableaux par init_basic();
+ *   - tableau des 56 paires P2[28][2]={i,j} par ordre alphabetique i < j
+ *     fonction reciproque pid[j][i] = pid[i][j] = np (rang dans P2)
+ *   - tableau des triplets tri[n_tri] ={a,b,c} a < b < c  (ordre alphabetique)
+ *     fonction reciproque tidx[a][b][c] = n_tri fonction riche pas de contrainte sur l'ordre de a,b,c
+ * B) Initialisation de ST1 et ST2 (Stage) decrivant le level 1 et le level 2
+ *   - par build_ST1 et build_ST2
+ *   - pour le level 1 :
+ *     - 720 permutations de {0,1,2,3,4,5}
+ *     - les 20=6x5x4/6 triplets de {0,1,2,3,4,5} sont pris (ds W1)
+ *   - pour le level 2 :
+ *     - 2 permutations de {6,7}
+ *     - les triplets sont donnés par la macro LISTE_W2
+ *        - doit respecter chaque triplet doit contenir un 6 ou un 7 ou les deux (hors de W1
+ *        - doit etre stable par la permutation 6<->7
+ *   - pour les 2 levels on precalcule pour chaque permutation :
+ *        - recip[num Triplet] : la fonction reciproque sur les triplets
+*            recip[tidx[perm(a)][perm(b)][perm(c)] = tidx[a][b][c]
+*            Cela marche pour ST2 car les triplets de la liste W2 doivent etre stable par le groupe des permutations
+*         - choiceByP[num Triplet][3] : les trois choix 0=(a,b) , 1=(a,c) ,2=(b,c)
+*         Exemple pour ST1 et la permutation (0->1->2->4->0).
+*             Le triplet (0,1,2) devient (1,2,4)
+*             - (0,1,2) (n° 0) devient (1,2,4) (n° 22) : donc recip[22] = 0
+*             -
+ *
  *
  * Meme methode que orbit_count.c, avec des groupes plus gros :
  *
@@ -76,6 +100,7 @@ typedef struct {
     const typeRemCov *W;                       // liste des triplets (invariant)
     typeRemCov cov[nbPairs];                        // couverture des paires
     typeRemCov curChoice[MAXT];             // choix pour chaque triplet (a,b,c) de la paire associée (0 = (a,b) , 1=(a,c) 2=(b,c)
+    typeRemCov curPair[MAXT];
     Leaf *leafs; long nleaf, cap;
     long wAssign;                       // poids total du developpement
     int killer;
@@ -179,7 +204,7 @@ static void stage_dfs(Stage *S, int j )
     for (typeRemCov c = 0; c < 3; c++) {
         typeRemCov p = tp[S->W[j]][c]; // paire
         if (S->cov[p] < 2) {
-            S->cov[p]++; S->curChoice[j] = c;
+            S->cov[p]++; S->curChoice[j] = c; S->curPair[j] = p ;
             stage_dfs(S, j + 1);
             S->cov[p]--;
         }
@@ -468,7 +493,7 @@ static Stage * build_ST2(void) {
 // perms : liste de permutations [0,8[
 // ng : nombre de permutations
 // retourne la structure Stage correspondante
-// applique au niveau 1 (35 triplets) et au niveau 2 (15 triplets)
+// applique au niveau 1 (SIZE_W1 20 triplets) et au niveau 2 (SIZE_W2 triplets)
 static Stage *stage_build(Stage * S,int perms[][8]) {
     const typeRemCov *W = S->W ;
     for (int nP = 0; nP < S->nbPerm; nP++) { // boucle sur les permutations
@@ -497,7 +522,6 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
                 }
                 pe->choiceByP[j][c] = k; // on stocke le nouvel index (0, ou 1, ou 2)
             }
-            // printf("Pe[%d](%d,%d,%d) \n",nP,pe->choiceByP[j][0],pe->choiceByP[j][1],pe->choiceByP[j][2]);
         }
     }
     return S;
