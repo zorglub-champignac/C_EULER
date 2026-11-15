@@ -1,7 +1,7 @@
 /*
  * A) Initialisation de certains tableaux par init_basic();
  *   - tableau des 56 paires P2[28][2]={i,j} par ordre alphabetique i < j
- *     fonction reciproque pid[j][i] = pid[i][j] = np (rang dans P2)
+ *     fonction reciproque pidx[j][i] = pidx[i][j] = np (rang dans P2)
  *   - tableau des triplets tri[n_tri] ={a,b,c} a < b < c  (ordre alphabetique)
  *     fonction reciproque tidx[a][b][c] = n_tri fonction riche pas de contrainte sur l'ordre de a,b,c
  * B) Initialisation de ST1 et ST2 (Stage) decrivant le level 1 et le level 2
@@ -15,10 +15,11 @@
  *        - doit respecter chaque triplet doit contenir un 6 ou un 7 ou les deux (hors de W1
  *        - doit etre stable par la permutation 6<->7
  *   - pour les 2 levels on precalcule pour chaque permutation :
- *        - recip[num Triplet] : la fonction reciproque sur les triplets
+ *        - recip_tri[num Triplet] : la fonction reciproque sur les triplets
 *            recip[tidx[perm(a)][perm(b)][perm(c)] = tidx[a][b][c]
 *            Cela marche pour ST2 car les triplets de la liste W2 doivent etre stable par le groupe des permutations
-*         - choiceByP[num Triplet][3] : les trois choix 0=(a,b) , 1=(a,c) ,2=(b,c)
+*         - direct_pair[num Pair] :
+*           direct_pair[pidx[a][b]] = pidx[perm(a)][perm(b)]
 *         Exemple pour ST1 et la permutation (0->1->2->4->0).
 *             Le triplet (0,1,2) devient (1,2,4)
 *             - (0,1,2) (n° 0) devient (1,2,4) (n° 22) : donc recip[22] = 0
@@ -71,7 +72,7 @@ typedef int8_t typeRemCov ;
 #define nbTriplets 56
 #include "cible.h"
 /* ---------------------------------------------------------------- base */
-static typeRemCov pid_[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )
+static typeRemCov pidx[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )
 static typeRemCov P2[nbPairs][2]; // liste des paires
 static typeRemCov tri[nbTriplets][3]; // liste des triplets
 static typeRemCov tidx[8][8][8];//  tableau des index [0,56[ des triplets ordonnés (a<b<c => index )
@@ -86,22 +87,19 @@ typedef typeRemCov remT_Type[nbRemT][3];
 
 /************************* structures **********************************/
 typedef struct {
-    typeRemCov choice[MAXT];  // liste des MAXT(35) choix pour la feuille
+    typeRemCov pairs[MAXT] ;
     int16_t weight;
 } Leaf;
 
 typedef struct {
-    typeRemCov recip[MAXT] ;
-    typeRemCov choiceByP[MAXT][3] ;
+    typeRemCov recip_tri[MAXT] ;
     typeRemCov direct_pair[nbPairs]  ;
-    typeRemCov recip_pair[nbPairs]  ;
 }Perm;
 typedef struct {
     typeRemCov nbT;
     int nbPerm;                          // nbT : nombre de triplets, nbPerm : nombre de permutations.
     const typeRemCov *W;                       // liste des triplets (invariant)
     typeRemCov cov[nbPairs];                        // couverture des paires
-    typeRemCov curChoice[MAXT];             // choix pour chaque triplet (a,b,c) de la paire associée (0 = (a,b) , 1=(a,c) 2=(b,c)
     typeRemCov curPair[MAXT];
     Leaf *leafs; long nleaf, cap;
     long wAssign;                       // poids total du developpement
@@ -143,10 +141,6 @@ int main(int argc, char **argv){
     // ************* construction deterministe   ************
     Stage * ST1 = build_ST1(); printf("buid_st1 OK\n");
     Stage * ST2 = build_ST2();  printf("buid_st2 OK\n");
-    //rem0 est deterministe : depend des seulement des triplets de W1 et de W2.
- //   static typeRemCov rem0[nbPairs] = {0};
- //   for (int i = 0; i < nbRemT; i++) { rem0[remT[i][0]]++; rem0[remT[i][1]]++; rem0[remT[i][2]]++; }
-    //remT_bt = build_remT(ST1,ST2);
     const typeRemCov * rem0 ;
     {
         remT_Type * remT = build_remT(ST1,ST2); // remT temporaire
@@ -200,18 +194,31 @@ void stage_phase1(Stage *S) {
 static void stage_dfs(Stage *S, int j )
 {
     if (j == S->nbT) {
-    //    printf("\nNL(%d) :",S->killer) ;
         stage_leaf(S);
         return;
     }
-    for (typeRemCov c = 0; c < 3; c++) {
-        typeRemCov p = tp[S->W[j]][c]; // paire
-        if (S->cov[p] < 2) {
-            S->cov[p]++; S->curChoice[j] = c; S->curPair[j] = p ;
-            stage_dfs(S, j + 1);
-            S->cov[p]--;
-        }
+    const typeRemCov *pair_choice = tp[S->W[j]] ;
+    // for (typeRemCov c = 0; c < 3; c++) {
+    typeRemCov p = pair_choice[0]; // paire
+    if (S->cov[p] < 2) {
+        S->cov[p]++;  S->curPair[j] = p ;
+        stage_dfs(S, j + 1);
+        S->cov[p]--;
     }
+    p = pair_choice[1]; // paire
+    if (S->cov[p] < 2) {
+        S->cov[p]++;  S->curPair[j] = p ;
+        stage_dfs(S, j + 1);
+        S->cov[p]--;
+    }
+    p = pair_choice[2]; // paire
+    if (S->cov[p] < 2) {
+        S->cov[p]++;  S->curPair[j] = p ;
+        stage_dfs(S, j + 1);
+        S->cov[p]--;
+    }
+
+    // }
 }
 // calcul du developpement des feuilles (terminaux des developpements de permutation)
 // calcule dans wAssign le poids total (nombre de leaf)
@@ -223,10 +230,7 @@ static void stage_leaf(Stage *S)
     { // tueuse d'abord
         Perm *peKiller = &S->Pe[S->killer];
         for (int j = 0; j < nT; j++) {
-            //typeRemCov dk = peKiller->choiceByP[j][S->curChoice[peKiller->recip[j]]];
-            // if (dk < S->curChoice[j]) { /*printf("bad j=%d",j );*/return; }   // killer est inferieure a curChoice, pas de changement
-            // if (dk > S->curChoice[j]) break;     // killer est superieur a curchoice => recalcul de killer
-            typeRemCov dk = peKiller->direct_pair[S->curPair[peKiller->recip[j]]];
+            typeRemCov dk = peKiller->direct_pair[S->curPair[peKiller->recip_tri[j]]];
             if (dk < S->curPair[j]) { return ; }
             if (dk > S->curPair[j]) { break ; }
         }
@@ -235,16 +239,10 @@ static void stage_leaf(Stage *S)
         int less = 0, greater = 0;
         Perm *pe = &S->Pe[nPerm];
         for (int j = 0; j < nT; j++) {
-//        for (int j = S->killer+1; j < nT; j++) {
-            //typeRemCov d = pe->choiceByP[j][S->curChoice[pe->recip[j]]];
-            //if (d < S->curChoice[j]) { less = 1; break; }
-            //if (d > S->curChoice[j]) { greater = 1; break; }
-            typeRemCov d = pe->direct_pair[S->curPair[pe->recip[j]]];
+            typeRemCov d = pe->direct_pair[S->curPair[pe->recip_tri[j]]];
             if (d < S->curPair[j]) { less = 1 ;break ; }
             if (d > S->curPair[j]) { greater = 1 ; break ; }
-
         }
-    //    printf(" ");
         if (less) {
             S->killer = nPerm ;
              return;
@@ -261,7 +259,7 @@ static void stage_leaf(Stage *S)
     }
     {
         Leaf *r = &S->leafs[S->nleaf++];
-        memcpy(r->choice, S->curChoice, nT*sizeof(S->curChoice[0]));
+        memcpy(r->pairs, S->curPair, nT*sizeof(S->curPair[0]));
         r->weight = (short)(S->nbPerm / stab);
     }
 }
@@ -303,7 +301,6 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
     print_info(fp,ST1,ST2);
     printf(" fichier %s, deja faits : %ld\n", fname, nskip);
     int freq_ndo = (nb_leaf / 100) +1  ;
-    // if (freq_ndo==0) freq_ndo= 1;
     int mod_ndo = 0;
     for (long id = 0; id < nb_leaf; id ++) {
         // for (long id = nb_leaf-1; id >= 0; id --) {
@@ -339,18 +336,16 @@ static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const
     typeRemCov cov1[nbPairs];
     u64 T = 0;
     const Leaf *r1 = &ST1->leafs[id];
-    const typeRemCov * W1 = ST1->W;
-    const typeRemCov * W2 = ST2->W;
     memset(cov1, 0, sizeof(cov1));
     for (int i = 0; i < MAXT; i++) {  // contrib stage 1
-        cov1[tp[W1[i]][r1->choice[i]]]++;
+        cov1[r1->pairs[i]]++ ;
     }
     for (int q = 0; q < ST2->nleaf; q++) {
         const Leaf *r2 = &ST2->leafs[q];
         int ok = 1;
         memcpy(cov, cov1, sizeof(cov1)); // init stage1
         for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
-            typeRemCov p = tp[W2[i]][r2->choice[i]] ;
+            typeRemCov p = r2->pairs[i] ;
             if (cov[p]>=2 ) { ok = 0; break ;}
             cov[p]++;
         }
@@ -510,7 +505,7 @@ static Stage * build_ST2(void) {
 // retourne la structure Stage correspondante
 // applique au niveau 1 (SIZE_W1 20 triplets) et au niveau 2 (SIZE_W2 triplets)
 static Stage *stage_build(Stage * S,int perms[][8]) {
-    const typeRemCov *W = S->W ;
+    // const typeRemCov *W = S->W ;
     for (int nP = 0; nP < S->nbPerm; nP++) { // boucle sur les permutations
         Perm *pe = &S->Pe[nP];
         for (typeRemCov i = 0; i < S->nbT; i++) { // boucle sur les triplets
@@ -524,23 +519,10 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
                     ,perms[nP][t[0]],perms[nP][t[1]],perms[nP][t[2]]);
                 exit(1);
             }
-            pe->recip[j] = i; // i => j , on le note ds la correpondance inversée
-            for (int8_t c = 0; c < 3; c++) { // boucle sur la paire associée
-                typeRemCov p = tp[W[i]][c]; // paire associee pour W[i]
-                typeRemCov q = pid_[perms[nP][P2[p][0]]][perms[nP][P2[p][1]]]; // q index de la paire en appliquant la permut g
-                typeRemCov k ;
-                for (k = 0; k < 3; k++) if (tp[W[j]][k] == q) break;
-                if (k == 3) {
-                    // ne doit jamais se produire
-                    fprintf(stderr, "paire image absente\n");
-                    exit(1);
-                }
-                pe->choiceByP[j][c] = k; // on stocke le nouvel index (0, ou 1, ou 2)
-            }
+            pe->recip_tri[j] = i; // i => j , on le note ds la correpondance inversée
         }
         for (typeRemCov i= 0; i<nbPairs;i++) {
-            typeRemCov j =  pid_[perms[nP][P2[i][0]]] [perms[nP][P2[i][1]]] ;;
-            pe->recip_pair[j] = i ;
+            typeRemCov j =  pidx[perms[nP][P2[i][0]]] [perms[nP][P2[i][1]]] ;;
             pe->direct_pair[i] = j ;
         }
     }
@@ -549,10 +531,7 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
 
 // const remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
 remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
-    //  static typeRemCov remT[nbRemT][3] ;
-    //
     remT_Type * remT = calloc(1, sizeof(remT_Type));
-    // memset(remT_bt,0,sizeof(remT_Type));
     int used[nbTriplets] = {0};
     for (int i = 0; i < MAXT; i++) used[ST1->W[i]] = 1;
     for (int i = 0; i < SIZE_W2; i++) used[ST2->W[i]] = 1;
@@ -612,7 +591,7 @@ static void init_basic(void)
     typeRemCov np = 0, nt = 0;
     for (typeRemCov i = 0; i < 8; i++)
         for (typeRemCov j = i + 1; j < 8; j++) {
-            pid_[i][j] = pid_[j][i] = np;
+            pidx[i][j] = pidx[j][i] = np;
             P2[np][0] = i; P2[np][1] = j; np++;
         }
     for (int a = 0; a < 8; a++)
@@ -626,9 +605,9 @@ static void init_basic(void)
                 tidx[c][a][b] = nt;
                 tidx[c][b][a] = nt;
 
-                tp[nt][0] = pid_[a][b];
-                tp[nt][1] = pid_[a][c];
-                tp[nt][2] = pid_[b][c];
+                tp[nt][0] = pidx[a][b];
+                tp[nt][1] = pidx[a][c];
+                tp[nt][2] = pidx[b][c];
                 nt++;
             }
 }
