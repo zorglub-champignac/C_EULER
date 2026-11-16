@@ -81,7 +81,7 @@ static typeRemCov tp[nbTriplets][3]; // liste des index de paires associées au 
 
 
 typedef typeRemCov remT_Type[nbRemT][3];
-// static remT_Type   * remT_bt = NULL ;
+
 
 
 
@@ -416,7 +416,7 @@ static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2) {
     fflush(fout);
 }
 void check_sum(long nb_leaf,char *name_fp ) {
-    char *done = (char *)calloc((size_t)nb_leaf, 1);
+    char *done = calloc((size_t)nb_leaf, 1);
     unsigned long long total = 0;
     long ndone = 0, missing = 0;
 

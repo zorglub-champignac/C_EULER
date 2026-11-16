@@ -3,7 +3,8 @@ project(C_EULER C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(fix_final fix_final.c)
+add_executable(fix_final fix_final.c
+        orbit_merge.c)
 add_executable(solve-iter solve-iter.c)
 add_executable(solve-iter-v1 solve-iter-v1.c)
 add_executable(solve-iter-v2 solve-iter-v2.c)
@@ -24,3 +25,4 @@ add_executable(orbit_count6 orbit_count6.c)
 add_executable(orbit_count6_v2 orbit_count6_v2.c)
 add_executable(orbit_general orbit_general.c
         cible.h)
+add_executable(orbit_merge orbit_merge.c cible.h)
