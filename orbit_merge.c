@@ -96,7 +96,6 @@ typedef struct {
 
 typedef struct {
     typeRemCov cov[nbPairs];
-    typeRemCov rem_cov[nbPairs];
     int32_t weight ;
 } HashLeaf;
 
@@ -291,9 +290,6 @@ int cmpHashCov(const void * h1, const void * h2) {
 }
 static u64 cnt ;
 const hashCov * compute_hash_cov_diff (hashCov *tbHashCov, int nbHashCov, int * nbHashDiff) {
-     /*   printf(" Avant tri(%d) : ",nbHashCov);
-    for (int i=0;i<10;i++) printf("%lld ",tbHashCov[i]);
-    */
     qsort(tbHashCov,nbHashCov,sizeof(hashCov),cmpHashCov);
 
     hashCov antCov = 0 ;
@@ -310,17 +306,12 @@ const hashCov * compute_hash_cov_diff (hashCov *tbHashCov, int nbHashCov, int * 
     }
     tbHashCov = realloc(tbHashCov,nbHashDif*sizeof(hashCov));
     *nbHashDiff = nbHashDif ;
-    /*printf("\n Apres tri   ");
-    for (int i=0;i<10;i++) printf("%lld ",tbHashCov[i]);
-    printf("\n");*/
     return tbHashCov ;
 }
 void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     int nbHashDiff1 , nbHashDiff2 ;
     int indHash1, indHash2 ,indHash ;
     int nbHash , nbHashDiff ;
-    //hashCov *tbHashCov1 = compute_hash_cov_diff(ST1,&nbHashDiff1) ;
-    //hashCov *tbHashCov2 = compute_hash_cov_diff(ST2,&nbHashDiff2) ;
 //************************* construction de thHashCov1 SEUL
     typeRemCov cov1[nbPairs];
     time_t t0 = time(NULL);
@@ -336,7 +327,6 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
         for (int p = 0; p < nbPairs; p++) {
             hC1 += pow3[p] * cov1[p] ;
         }
-        // hashCov * ptHash1 = bsearch(&hC,tbHashCov1,nbHashDiff1,sizeof(hashCov),cmpHashCov);
         tbHashCov1[id]= hC1 ;
     }
     tbHashCov1 = compute_hash_cov_diff(tbHashCov1,nb_leaf,&nbHashDiff1) ;
@@ -353,15 +343,11 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
         for (int p = 0; p < nbPairs; p++) {
             hC2 += pow3[p] * cov1[p] ;
         }
-        // hashCov * ptHash1 = bsearch(&hC,tbHashCov1,nbHashDiff1,sizeof(hashCov),cmpHashCov);
         tbHashCov2[id]= hC2 ;
     }
     tbHashCov2 = compute_hash_cov_diff(tbHashCov2,ST2->nleaf,&nbHashDiff2) ;
     printf("HasCov1 %d -> %d diff,  HasCov2 %d -> %d diff Total=%d \n"
         ,ST1->nleaf,nbHashDiff1,ST2->nleaf,nbHashDiff2,nbHashDiff1*nbHashDiff2,tbHashCov2[0]) ;
-    /* for (int i=0;i<10;i++) printf("%lld ",tbHashCov2[i]) ;
-    printf("\n") ; */
-    fflush(stdout) ;
     nbHash = nbHashDiff1 * nbHashDiff2 ;
     hashCov *  tbHashCov = calloc(nbHash,sizeof(tbHashCov[0]));
     nb_leaf = ST1->nleaf ;
@@ -385,12 +371,10 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
             printf("Error HashCov1=%lld not found\n",hC1); exit (0) ;
         }
         indHash1 = ptHash1 - tbHashCov1 ;
-        //printf("\n[%d] %d =>",ST2->nleaf,indHash1) ;
         for (int q = 0; q < ST2->nleaf; q++) {
             const Leaf *r2 = &ST2->leafs[q];
             int ok = 1;
             memcpy(cov, cov1, sizeof(cov1)); // init stage1
-            //memset(cov, 0, sizeof(cov));
             for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
                 typeRemCov p = r2->pairs[i] ;
                 if (cov[p]>=2 ) { ok = 0; break ;}
@@ -434,11 +418,6 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
             for (int p = 0; p < nbPairs ; p++) {
                 hC += pow3[p] * cov[p];
             }
-            //printf("%d(%d) ",index,q);
-            if (tbHashCov[index]==0)
-                nbNew ++ ;
-            else
-                nbDup ++ ;
             tbHashCov[index] =  hC ;
        }
     }
@@ -457,14 +436,10 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
         for (int p = 0; p < nbPairs ; p++) {
             hC1 += pow3[p] * cov1[p] ;
         }
-        // hashCov * ptHash1 = bsearch(&hC1,tbHashCov1,nbHashDiff1,sizeof(hashCov),cmpHashCov);
-        // indHash1 = ptHash1 - tbHashCov1 ;
-        //printf("\n[%d] %d =>",ST2->nleaf,indHash1) ;
         for (int q = 0; q < ST2->nleaf; q++) {
             const Leaf *r2 = &ST2->leafs[q];
             int ok = 1;
             memcpy(cov, cov1, sizeof(cov1)); // init stage1
-            //memset(cov, 0, sizeof(cov));
             for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
                 typeRemCov p = r2->pairs[i] ;
                 if (cov[p]>=2 ) { ok = 0; break ;}
@@ -473,7 +448,6 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
             if (ok) {
                 for (typeRemCov p =0; p< nbPairs;  p++) {
                     if (cov[p] + rem0[p] < 2) { ok = 0; break; }
-                    rem_cov[p] = cov[p] + rem0[p] ;
                 }
             }
             if (!ok) continue;
@@ -481,29 +455,29 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
             for (int p = 0; p < nbPairs ; p++) {
                 hC += pow3[p] * cov[p];
             }
-            // hashCov hC = hC1 + hC2 ;
             hashCov * ptHash = bsearch(&hC,tbHashCov,nbHashDiff,sizeof(hashCov),cmpHashCov);
+
             if (ptHash == NULL) {
                 printf("Error HashCov=%lld not found\n",hC); exit (0) ;
             }
             indHash = ptHash - tbHashCov ;
             if (tbHashLeaf[indHash].weight ==0) {
                 memcpy(tbHashLeaf[indHash].cov, cov, sizeof(cov));
-                memcpy(tbHashLeaf[indHash].rem_cov, rem_cov, sizeof(rem_cov));
             }
             tbHashLeaf[indHash].weight += r1->weight * r2->weight ;
             cnt = 0;
-            //bt(0);
             nbCallBt++ ;
-            // T += (u64) r1->weight * r2->weight * cnt;
         }
-    //    if ((id & 0x7ff) ==0 ) printf("%d->%lld ",id,T); fflush(stdout);
     }
     printf("%lds End phase get cov  \n",(long)(time(NULL) - t0));
     int nh_period = nbHashDiff / 100 ;
     for (int np=0,nh = 0; nh < nbHashDiff ; np++, nh++) {
         memcpy(cov,tbHashLeaf[nh].cov, sizeof(cov));
-        memcpy(rem_cov,tbHashLeaf[nh].rem_cov, sizeof(rem_cov));
+            for (typeRemCov p =0; p< nbPairs;  p++) {
+            rem_cov[p] = cov[p] + rem0[p] ;
+        }
+
+
         cnt = 0;
         bt(0);
         T += (u64) tbHashLeaf[nh].weight * cnt;
