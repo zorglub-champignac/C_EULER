@@ -70,6 +70,8 @@ typedef unsigned long long u64;
 typedef int8_t typeRemCov ;
 #define nbPairs 28
 #define nbTriplets 56
+
+#define CIBLE 19
 #include "cible.h"
 /* ---------------------------------------------------------------- base */
 static typeRemCov pidx[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )

@@ -70,6 +70,8 @@ typedef unsigned long long u64;
 typedef int8_t typeRemCov ;
 #define nbPairs 28
 #define nbTriplets 56
+
+#define CIBLE 19
 #include "cible.h"
 /* ---------------------------------------------------------------- base */
 static typeRemCov pidx[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )
@@ -548,10 +550,10 @@ remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
     }
     return remT ;
 }
+static typeRemCov l_rem0[nbRemT];
 const typeRemCov *   build_rem0(const remT_Type * remT0) {
-    static typeRemCov rem0[nbRemT];
-    for (int i = 0; i < nbRemT; i++) { rem0[(*remT0)[i][0]]++; rem0[(*remT0)[i][1]]++; rem0[(*remT0)[i][2]]++; }
-    return rem0 ;
+    for (int i = 0; i < nbRemT; i++) { l_rem0[(*remT0)[i][0]]++; l_rem0[(*remT0)[i][1]]++; l_rem0[(*remT0)[i][2]]++; }
+    return l_rem0 ;
 }
 /****************************** outils divers ********************************************/
 
