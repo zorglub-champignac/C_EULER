@@ -4,7 +4,7 @@
 
 #ifndef C_EULER_CIBLE_H
 #define C_EULER_CIBLE_H
-
+// #define CIBLE 19
 
 #if CIBLE == 1
 #   define CIBLE_NAME  "perm5_W4"
@@ -68,9 +68,9 @@
 #   define MAXT    20 // 6x5x4/6
 #   define SIZE_W2 10
 #   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7},{1,5,6},{1,5,7},{1,6,7},{2,5,6},{2,5,7},{2,6,7}}
-#   define PERM2   5
-#   define G_PERM2 3
-#   define NBPERM2 6
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
 #   define nbRemT 26  // NbTriplets - MAXT - SIZE_W2  56-(20+10)
 #elif CIBLE == 7
 #   define CIBLE_NAME  "perm6_W10b"
@@ -79,9 +79,9 @@
 #   define MAXT    20 // 6x5x4/6
 #   define SIZE_W2 10
 #   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7},{2,5,6},{2,5,7},{2,6,7},{4,5,6},{4,5,7},{4,6,7}}
-#   define PERM2   5
-#   define G_PERM2 3
-#   define NBPERM2 6
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
 #   define nbRemT 26  // NbTriplets - MAXT - SIZE_W2  56-(20+10)
 #elif CIBLE == 8
 #   define CIBLE_NAME  "perm6_W10c"
@@ -96,15 +96,15 @@
 #   define nbRemT 26  // NbTriplets - MAXT - SIZE_W2  56-(20+10)
 #elif CIBLE == 9
 #   define CIBLE_NAME  "perm5_W10d"
-#   define PERM1   5  // permutation de [012..4[
-#   define NBPERM1 120 // 5!
-#   define MAXT    10 // 5x4x3/6
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 5!
+#   define MAXT    20 // 5x4x3/6
 #   define SIZE_W2 10
 #   define LIST_W2 {{5,6,7},{0,5,6},{0,5,7},{0,6,7},{1,5,6},{1,5,7},{1,6,7},{2,5,6},{2,5,7},{2,6,7}}
-#   define PERM2   5
-#   define G_PERM2 3
-#   define NBPERM2 6
-#   define nbRemT 36  // NbTriplets - MAXT - SIZE_W2  56-(10+10)
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 26  // NbTriplets - MAXT - SIZE_W2  56-(20+10)
 #elif CIBLE == 10
 #   define CIBLE_NAME  "perm6_W4"
 #   define PERM1   6  // permutation de [012..4[
