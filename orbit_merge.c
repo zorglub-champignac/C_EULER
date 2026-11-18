@@ -312,14 +312,15 @@ const hashCov * compute_hash_cov_diff (hashCov *tbHashCov, int nbHashCov, int * 
     *nbHashDiff = nbHashDif ;
     return tbHashCov ;
 }
-
-void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
+time_t t0 ;
+hashCov *  tbHashCov ;
+int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     int nbHashDiff1 , nbHashDiff2 ;
     int indHash1, indHash2 ,indHash ;
     int nbHash , nbHashDiff ;
-//************************* construction de thHashCov1 SEUL
+    //************************* construction de thHashCov1 SEUL
     typeRemCov cov1[nbPairs];
-    time_t t0 = time(NULL);
+    t0 = time(NULL);
     long nb_leaf = ST1->nleaf;
     hashCov *tbHashCov1 = malloc(ST1->nleaf*sizeof(tbHashCov1[0]));
     for (int id = 0; id < ST1->nleaf; id++) {
@@ -354,9 +355,8 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     printf("HasCov1 %d -> %d diff,  HasCov2 %d -> %d diff Total=%d \n"
         ,ST1->nleaf,nbHashDiff1,ST2->nleaf,nbHashDiff2,nbHashDiff1*nbHashDiff2,tbHashCov2[0]) ;
     nbHash = nbHashDiff1 * nbHashDiff2 ;
-    hashCov *  tbHashCov = calloc(nbHash,sizeof(tbHashCov[0]));
+    tbHashCov = calloc(nbHash,sizeof(tbHashCov[0]));
     nb_leaf = ST1->nleaf ;
-    u64 T = 0 ;
     //************************* construction de thHashCov expanse
     int nbNew = 0 ;
     int nbDup = 0 ;
@@ -424,12 +424,17 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
                 hC += pow3[p] * cov[p];
             }
             tbHashCov[index] =  hC ;
-       }
+        }
     }
     tbHashCov = compute_hash_cov_diff(tbHashCov,nbHashDiff1*nbHashDiff2,&nbHashDiff) ;
     printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),nbHashDiff1*nbHashDiff2,nbHashDiff);
     fflush(stdout);
+    return nbHashDiff ;
+}
+HashLeaf * compute_hashCovWeight(int  nbHashDiff ,hashCov *  tbHashCov ,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
+    int indHash1, indHash2 ,indHash ;
     HashLeaf * tbHashLeaf = calloc (nbHashDiff, sizeof(HashLeaf));
+    typeRemCov cov1[nbPairs];
     int nbCallBt= 0 ;
     for (int id = 0; id < ST1->nleaf ; id++) {
         const Leaf *r1 = &ST1->leafs[id];
@@ -475,6 +480,11 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
         }
     }
     printf("%lds End phase get cov  \n",(long)(time(NULL) - t0));
+    return tbHashLeaf ;
+}
+
+u64 ComputeHash (const typeRemCov *rem0,int nbHashDiff,HashLeaf * tbHashLeaf) {
+    u64 T = 0 ;
     int nh_period = nbHashDiff / 100 ;
     for (int np=0,nh = 0; nh < nbHashDiff ; np++, nh++) {
         memcpy(cov,tbHashLeaf[nh].cov, sizeof(cov));
@@ -492,6 +502,7 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
         }
     }
     printf("%lds T=%lld \n",(long)(time(NULL) - t0),T);
+    return T ;
 }
 void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)   {
     long nb_leaf = ST1->nleaf;
@@ -524,7 +535,10 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
     if (!fp) { perror("res"); return ; }
     print_info(fp,ST1,ST2);
     printf(" fichier %s, deja faits : %ld\n", fname, nskip);
-    compute_hashCov(rem0,ST1,ST2);
+    int nbHashDiff = compute_hashCov(rem0,ST1,ST2);
+    HashLeaf * tbHashLeaf= compute_hashCovWeight(nbHashDiff ,tbHashCov ,rem0,ST1,ST2) ;
+    ComputeHash (rem0,nbHashDiff,tbHashLeaf) ;
+
     /*
     int freq_ndo = (nb_leaf / 100) +1  ;
     int mod_ndo = 0;
