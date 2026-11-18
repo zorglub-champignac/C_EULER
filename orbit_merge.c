@@ -71,7 +71,7 @@ typedef int8_t typeRemCov ;
 #define nbPairs 28
 #define nbTriplets 56
 
-#define CIBLE 20
+#define CIBLE 24
 #include "cible.h"
 /* ---------------------------------------------------------------- base */
 static typeRemCov pidx[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )
@@ -86,7 +86,11 @@ typedef typeRemCov remT_Type[nbRemT][3];
 
 typedef int64_t hashCov ;
 
-static hashCov pow3[nbPairs] ;
+static const hashCov pow3[nbPairs] = {
+    1 ,3 ,9 ,27 ,81 ,243 ,729 ,2187 ,6561 ,19683 ,59049 ,177147 ,531441 ,1594323
+    ,4782969 ,14348907 ,43046721 ,129140163 ,387420489 ,1162261467 ,3486784401
+    ,10460353203 ,31381059609 ,94143178827 ,282429536481 ,847288609443 ,2541865828329 ,7625597484987
+} ;
 
 /************************* structures **********************************/
 typedef struct {
@@ -308,6 +312,7 @@ const hashCov * compute_hash_cov_diff (hashCov *tbHashCov, int nbHashCov, int * 
     *nbHashDiff = nbHashDif ;
     return tbHashCov ;
 }
+
 void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     int nbHashDiff1 , nbHashDiff2 ;
     int indHash1, indHash2 ,indHash ;
@@ -434,7 +439,7 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
         }
         hashCov hC1 = 0 ;
         for (int p = 0; p < nbPairs ; p++) {
-            hC1 += pow3[p] * cov1[p] ;
+            if (cov1[p] ) hC1 += pow3[p] * cov1[p] ;
         }
         for (int q = 0; q < ST2->nleaf; q++) {
             const Leaf *r2 = &ST2->leafs[q];
@@ -453,7 +458,7 @@ void compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
             if (!ok) continue;
             hashCov hC = 0 ;
             for (int p = 0; p < nbPairs ; p++) {
-                hC += pow3[p] * cov[p];
+                if (cov[p]) hC += pow3[p] * cov[p];
             }
             hashCov * ptHash = bsearch(&hC,tbHashCov,nbHashDiff,sizeof(hashCov),cmpHashCov);
 
@@ -834,8 +839,9 @@ static void init_basic(void)
                 nt++;
             }
     hashCov pow= 1;
-    for (int p3=0;p3<nbPairs;p3++) {
+    /*for (int p3=0;p3<nbPairs;p3++) {
         pow3[p3] = pow;
+        printf("%lld ",pow);
         pow *= 3 ;
-    }
+    }*/
 }

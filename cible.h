@@ -304,7 +304,51 @@
 #   define G_PERM2 2
 #   define NBPERM2 2
 #   define nbRemT 27  // NbTriplets - MAXT - SIZE_W2  56-(20+9)
-
+#elif CIBLE == 28
+#   define CIBLE_NAME  "perm6_W9b"
+#   define PERM1   6  // permutation de [012..5[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 9
+#   define LIST_W2 {{0,1,6},{0,1,7},{0,2,6},{0,2,7},{1,2,6},{1,2,7},{0,3,6},{0,3,7},{5,6,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 27  // NbTriplets - MAXT - SIZE_W2  56-(20+9)
+#elif CIBLE == 29
+#   define CIBLE_NAME  "perm6_W9b"
+#   define PERM1   6  // permutation de [012..5[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 9
+#   define LIST_W2 {{0,1,6},{0,1,7},{0,2,6},{0,2,7},{1,2,6},{1,2,7},{0,3,6},{0,3,7},{0,6,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 27  // NbTriplets - MAXT - SIZE_W2  56-(20+9)
+#elif CIBLE == 30
+#   define CIBLE_NAME  "perm6_W10f"
+#   define PERM1   6  // permutation de [012..6[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 10
+#   define LIST_W2 {{0,1,6},{0,2,6},{1,2,6},{0,3,6},{1,3,6},{0,1,7},{0,2,7},{1,2,7},{0,3,7},{1,3,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 26  // NbTriplets - MAXT - SIZE_W2  56-(20+10)
+#elif CIBLE == 31
+#   define CIBLE_NAME  "perm6_W9"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 9
+#   define LIST_W2 {{0,1,6},{0,2,6},{1,2,6},{0,1,7},{0,2,7},{1,2,7},{0,6,7},{1,6,7},{2,6,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 27  // NbTriplets - MAXT - SIZE_W2  56-(20+9)
 #endif
+
 
 #endif //C_EULER_CIBLE_H
