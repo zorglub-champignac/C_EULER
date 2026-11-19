@@ -285,6 +285,10 @@ static typeRemCov rem_cov[nbPairs] ;
 static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2) ;
 static clock_t jobs_total = 0;
 static clock_t bt_total = 0;
+typedef struct {
+   hashCov *hashCov ;
+    int nbHash ;
+} hash_tb ;
 
 int cmpHashCov(const void * h1, const void * h2) {
     hashCov diff = *(const hashCov *)h1 - *(const hashCov *)h2 ;
@@ -308,12 +312,12 @@ int compute_hash_cov_diff (hashCov *tbHashCov, int nbHashCov) {
             antCov = tbHashCov[i] ;
         }
     }
-    // memset(tbHashCov+nbHashDif,0,nbHashCov-nbHashDif) ;
     return nbHashDif ;
 }
-const hashCov * compact_hash(const Stage *ST,int * nbHashDiff ) {
+hash_tb compact_hash(const Stage *ST) {
+    hash_tb tb ;
+    tb.hashCov =  malloc(ST->nleaf*sizeof(tb.hashCov[0])); ;
     typeRemCov cov1[nbPairs];
-    hashCov *tbHashCov = malloc(ST->nleaf*sizeof(tbHashCov[0]));
     for (int id = 0; id < ST->nleaf; id++) {
         const Leaf *r = &ST->leafs[id];
         memset(cov1, 0, sizeof(cov1));
@@ -324,59 +328,70 @@ const hashCov * compact_hash(const Stage *ST,int * nbHashDiff ) {
         for (int p = 0; p < nbPairs; p++) {
             hC += pow3[p] * cov1[p] ;
         }
-        tbHashCov[id]= hC ;
+        tb.hashCov[id]= hC ;
     }
-    *nbHashDiff =  compute_hash_cov_diff(tbHashCov,ST->nleaf) ;
-    tbHashCov = realloc(tbHashCov,(*nbHashDiff)*sizeof(hashCov));
-    return tbHashCov ;
-
-    // tbHashCov1 = compute_hash_cov_diff(tbHashCov1,nb_leaf,&nbHashDiff1) ;
-
+    tb.nbHash =  compute_hash_cov_diff(tb.hashCov,ST->nleaf) ;
+    tb.hashCov = realloc(tb.hashCov,tb.nbHash*sizeof(hashCov));
+    return tb ;
+}
+int get_ind_hash(hash_tb tb,hashCov hC) {
+    hashCov * ptHash = bsearch(&hC,tb.hashCov,tb.nbHash,sizeof(hashCov),cmpHashCov);
+    if (ptHash == NULL) {
+        printf("Error HashCov=%lld not found in table(size=%d)\n",hC,tb.nbHash); exit (0) ;
+    }
+    int indHash = (int)(ptHash -  tb.hashCov) ;
+    return indHash ;
+}
+hashCov covToHash(const typeRemCov *cov) {
+    hashCov hC = 0 ;
+    for (int i=0;i<nbPairs;i++) {hC += pow3[i] * cov[i] ;}
+    return hC ;
 }
 time_t t0 ;
 hashCov *  tbHashCov ;
-int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
-    int nbHashDiff1 , nbHashDiff2 ;
-    int nbHashAlloc , nbHashDiff ;
-    //************************* construction de thHashCov1 SEUL
-    typeRemCov cov1[nbPairs];
-    t0 = time(NULL);
-    const hashCov *tbHashCov1 = compact_hash(ST1,&nbHashDiff1 ) ;
-    const hashCov *tbHashCov2 = compact_hash(ST2,&nbHashDiff2 ) ;
-
+// 0x2000000=33 554 432
 #define MAX_HASH_ALLOC 0x2000000
 #define MAX_CONFLITS 20000000
+
+hashCov hC_compute(const typeRemCov *rem0,const typeRemCov *cov1 ,const Leaf* r2) {
+    memcpy(cov, cov1, sizeof(cov)); // init stage1
+    for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
+        typeRemCov p = r2->pairs[i] ;
+        if (cov[p]>=2 ) { return 0 ;}
+        cov[p]++;
+    }
+    for (typeRemCov p =0; p< nbPairs;  p++) {
+        if (cov[p] + rem0[p] < 2) { return 0 ; }
+        rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
+    }
+    return covToHash(cov) ;
+}
+int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
+    typeRemCov cov1[nbPairs];
+    t0 = time(NULL);
+    const hash_tb hash_ST1 = compact_hash(ST1) ;
+    const hash_tb hash_ST2 = compact_hash(ST2) ;
+    int nbHashAlloc = hash_ST1.nbHash * hash_ST2.nbHash ;
+
     printf("HasCov1 %ld -> %d diff,  HasCov2 %ld -> %d diff Total=%d MAX=%d\n"
-        ,ST1->nleaf,nbHashDiff1,ST2->nleaf,nbHashDiff2,nbHashDiff1*nbHashDiff2,MAX_HASH_ALLOC) ;
-    nbHashAlloc = nbHashDiff1 * nbHashDiff2 ;
+        ,ST1->nleaf,hash_ST1.nbHash,ST2->nleaf,hash_ST2.nbHash,nbHashAlloc,MAX_HASH_ALLOC) ;
     int overbook = 0 ;
     int indexConflicts = 0 ;
     if ( nbHashAlloc > MAX_HASH_ALLOC ) {
         nbHashAlloc = MAX_HASH_ALLOC ;
         indexConflicts = nbHashAlloc ;
         overbook = 1 ;
-        nbHashAlloc +=  MAX_CONFLITS ;
+        nbHashAlloc +=  MAX_CONFLITS ; // rajout de la zone pour gerer les conflits
     }
     tbHashCov = calloc(nbHashAlloc,sizeof(tbHashCov[0]));
-    // nb_leaf = ST1->nleaf ;
-    //************************* construction de thHashCov expanse
-    int conflits = 0 ;
-    int no_conf = 0 ;
+    int nb_conflits = 0 ;
+    int nb_free = 0 ;
     for (int id = 0; id < ST1->nleaf ; id++) {
         const Leaf *r1 = &ST1->leafs[id];
-            memset(cov1, 0, sizeof(cov1));
-        for (int i = 0; i < MAXT; i++) {  // contrib stage 1
-            cov1[r1->pairs[i]]++ ;
-        }
-        hashCov hC1 = 0 ;
-        for (int p = 0; p < nbPairs; p++) {
-            hC1 += pow3[p] * cov1[p] ;
-        }
-        hashCov * ptHash1 = bsearch(&hC1,tbHashCov1,nbHashDiff1,sizeof(hashCov),cmpHashCov);
-        if (ptHash1 == NULL) {
-            printf("Error HashCov1=%lld not found\n",hC1); exit (0) ;
-        }
-        int indHash1 = (int)(ptHash1 - tbHashCov1) ;
+        memset(cov1, 0, sizeof(cov1));
+        for (int i = 0; i < MAXT; i++) {  cov1[r1->pairs[i]]++ ;}
+        const hashCov hC1 = covToHash(cov1) ;
+        const int indHash1 = get_ind_hash(hash_ST1,hC1);
         for (int q = 0; q < ST2->nleaf; q++) {
             const Leaf *r2 = &ST2->leafs[q];
             int ok = 1;
@@ -392,59 +407,41 @@ int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
                     rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
                 }
             }
-            if (!ok) {
-                continue;
-            }
-            hashCov hC2 = 0 ;
+            if (!ok) { continue; }
             memset(cov, 0, sizeof(cov));
             for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
                 typeRemCov p = r2->pairs[i] ;
                 if (cov[p]>=2 ) { ok = 0; break ;}
                 cov[p]++;
             }
-            for (int p = 0; p < nbPairs ; p++) {
-                hC2 += pow3[p] * cov[p];
-            }
-            hashCov * ptHash2 = bsearch(&hC2,tbHashCov2,nbHashDiff2,sizeof(hashCov),cmpHashCov);
-            if (ptHash2 == NULL) {
-                printf("Error HashCov2=%lld not found\n",hC2); exit (0) ;
-            }
-            int indHash2 = (int)(ptHash2 - tbHashCov2) ;
-            int index = indHash1*nbHashDiff2+indHash2 ;
+            if (!ok) continue ;
+            const hashCov hC2 = covToHash(cov) ;
             memcpy(cov, cov1, sizeof(cov1)); // init stage1
             for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
                 typeRemCov p = r2->pairs[i] ;
                 if (cov[p]>=2 ) { ok = 0; break ;}
                 cov[p]++;
             }
-            if (!ok) {
-                continue;
-            }
-            hashCov hC = 0 ;
-            for (int p = 0; p < nbPairs ; p++) {
-                hC += pow3[p] * cov[p];
-            }
+            if (!ok) {  continue; }
+            const int indHash2 = get_ind_hash(hash_ST2,hC2);
+            int index = indHash1*hash_ST2.nbHash+indHash2 ;
+            hashCov hC =covToHash(cov) ;
             if (overbook ) {
-                index &= (MAX_HASH_ALLOC-1);
+                index &= MAX_HASH_ALLOC-1 ;
                 if  (tbHashCov[index] !=hC && tbHashCov[index] != 0) {
-                    index = indexConflicts + conflits++ ;
-                } else  no_conf++ ;
-                tbHashCov[index] =  hC ;
+                    index = indexConflicts + nb_conflits++ ;
+                } else  nb_free++ ;
             } else {
-                if  (tbHashCov[index] !=hC  && tbHashCov[index] != 0 ) conflits++ ;
-                else no_conf++ ;
-                tbHashCov[index] =  hC ;
+                if  (tbHashCov[index] !=hC  && tbHashCov[index] != 0 ) nb_conflits++ ;
+                else nb_free++ ;
             }
+            tbHashCov[index] =  hC ;
         }
-        /*
-        if ((id & 0xFFF) == 0 )
-            printf("%d %d conflits OK=%d\n",id,conflits,no_conf);*/
     }
-    printf("Fin  %d conflits OK=%d\n",conflits,no_conf);
-    //tbHashCov = compute_hash_cov_diff(tbHashCov,nbHashDiff1*nbHashDiff2,&nbHashDiff) ;
-    nbHashDiff =  compute_hash_cov_diff(tbHashCov,nbHashAlloc) ;
+    printf("Fin :%dconflits, Free=%d\n",nb_conflits,nb_free);
+    const int nbHashDiff = compute_hash_cov_diff(tbHashCov, nbHashAlloc);
     tbHashCov = realloc(tbHashCov,nbHashDiff*sizeof(hashCov));
-    printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),nbHashDiff1*nbHashDiff2,nbHashDiff);
+    printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),hash_ST1.nbHash*hash_ST2.nbHash,nbHashDiff);
     fflush(stdout);
     return nbHashDiff ;
 }
@@ -458,33 +455,13 @@ HashLeaf * compute_hashCovWeight(int  nbHashDiff ,const typeRemCov *rem0,const S
         for (int i = 0; i < MAXT; i++) {  // contrib stage 1
             cov1[r1->pairs[i]]++ ;
         }
-        hashCov hC1 = 0 ;
-        for (int p = 0; p < nbPairs ; p++) {
-            if (cov1[p] ) hC1 += pow3[p] * cov1[p] ;
-        }
         for (int q = 0; q < ST2->nleaf; q++) {
             const Leaf *r2 = &ST2->leafs[q];
-            int ok = 1;
-            memcpy(cov, cov1, sizeof(cov1)); // init stage1
-            for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
-                typeRemCov p = r2->pairs[i] ;
-                if (cov[p]>=2 ) { ok = 0; break ;}
-                cov[p]++;
-            }
-            if (ok) {
-                for (typeRemCov p =0; p< nbPairs;  p++) {
-                    if (cov[p] + rem0[p] < 2) { ok = 0; break; }
-                }
-            }
-            if (!ok) continue;
-            hashCov hC = 0 ;
-            for (int p = 0; p < nbPairs ; p++) {
-                if (cov[p]) hC += pow3[p] * cov[p];
-            }
+            hashCov hC = hC_compute(rem0,cov1 ,r2) ;
+            if (hC == 0) continue ;
             hashCov * ptHash = bsearch(&hC,tbHashCov,nbHashDiff,sizeof(hashCov),cmpHashCov);
-
             if (ptHash == NULL) {
-                printf("Error HashCov=%lld not found\n",hC); exit (0) ;
+                printf("ErrorX HashCov=%lld not found\n",hC); exit (0) ;
             }
             int indHash = (int)(ptHash - tbHashCov) ;
             if (tbHashLeaf[indHash].weight ==0) {
