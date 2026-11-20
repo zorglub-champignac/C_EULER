@@ -348,6 +348,17 @@
 #   define G_PERM2 2
 #   define NBPERM2 2
 #   define nbRemT 27  // NbTriplets - MAXT - SIZE_W2  56-(20+9)
+#elif CIBLE == 32
+#   define CIBLE_NAME  "perm6_W9"
+#   define PERM1   6  // permutation de [012..4[
+#   define NBPERM1 720 // 6!
+#   define MAXT    20 // 6x5x4/6
+#   define SIZE_W2 9
+#   define LIST_W2 {{0,1,6},{0,1,7},{0,2,6},{0,2,7},{1,2,6},{1,2,7},{0,6,7},{1,6,7},{2,6,7}}
+#   define PERM2   6
+#   define G_PERM2 2
+#   define NBPERM2 2
+#   define nbRemT 27  // NbTriplets - MAXT - SIZE_W2  56-(20+9)
 #endif
 
 
