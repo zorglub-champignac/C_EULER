@@ -71,7 +71,7 @@ typedef int8_t typeRemCov ;
 #define nbPairs 28
 #define nbTriplets 56
 
-#define CIBLE 24
+#define CIBLE 27
 #include "cible.h"
 
 // 0x2000000=33 554 432
@@ -294,12 +294,54 @@ typedef struct {
    hashCov *hashCov ;
     int nbHash ;
 } hash_tb ;
+typedef struct {
+    hashCov key ;
+    u64 weight ;
+} k_element ;
+typedef struct {
+    k_element *tb ;
+    int nbKey ;
+} key_tb ;
 
 int cmpHashCov(const void * h1, const void * h2) {
     hashCov diff = *(const hashCov *)h1 - *(const hashCov *)h2 ;
     if (diff > 0) return 1 ;
     else if (diff < 0) return -1 ;
     else return 0 ;
+}
+
+
+int cmp_k_element (const void * k1, const void * k2) {
+    hashCov diff = ((const k_element *)k1)->key - ((const k_element *)k2)->key ;
+    if (diff > 0) return 1 ;
+    else if (diff < 0) return -1 ;
+    else return 0 ;
+}
+void merge_k_element(k_element *k1, k_element *k2) {
+    k1->weight += k2->weight ;
+}
+
+int compute_key_tb_diff (key_tb * tb_elem) {
+    //qsort(tbHashCov,nbHashCov,sizeof(hashCov),cmpHashCov);
+    qsort(tb_elem->tb,tb_elem->nbKey,sizeof(k_element),cmp_k_element) ;
+    for (int i =0; i< 15;i++) printf("%lld(%lld) ",tb_elem->tb[i].key,tb_elem->tb[i].weight) ; printf("\n");
+    hashCov ant_key = tb_elem->tb[0].key ;
+    int nbElemDif = 1 ;
+    for (int i=1;i< tb_elem->nbKey ;i++) {
+        if ( tb_elem->tb[i].key != ant_key)  {
+            if (nbElemDif != i) {
+               tb_elem->tb[nbElemDif++] = tb_elem->tb[i] ;
+            } else {
+                nbElemDif++ ;
+            }
+            ant_key = tb_elem->tb[i].key ;
+        } else {
+            merge_k_element(tb_elem->tb+nbElemDif-1,tb_elem->tb+i) ;
+        }
+    }
+    // printf("nbKey=%d Diff=%d\n",tb_elem->nbKey,nbElemDif) ;
+    tb_elem->nbKey = nbElemDif ;
+    return nbElemDif ;
 }
 
 static u64 cnt ;
@@ -339,6 +381,32 @@ hash_tb compact_hash(const Stage *ST) {
     tb.hashCov = realloc(tb.hashCov,tb.nbHash*sizeof(hashCov));
     return tb ;
 }
+
+key_tb compact_key(const Stage *ST) {
+    key_tb ketb ;
+    ketb.tb =  malloc(ST->nleaf*sizeof(ketb.tb[0])); ;
+    typeRemCov cov1[nbPairs];
+    for (int id = 0; id < ST->nleaf; id++) {
+        const Leaf *r = &ST->leafs[id];
+        memset(cov1, 0, sizeof(cov1));
+        for (int i = 0; i < ST->nbT; i++) {  // contrib stage 1
+            cov1[r->pairs[i]]++ ;
+        }
+        hashCov hC = 0 ;
+        for (int p = 0; p < nbPairs; p++) {
+            hC += pow3[p] * cov1[p] ;
+        }
+        ketb.tb[id].key= hC ;
+        ketb.tb[id].weight= r->weight ;
+    }
+    ketb.nbKey = ST->nleaf ;
+    ketb.nbKey =  compute_key_tb_diff(&ketb) ;
+    ketb.tb = realloc(ketb.tb,ketb.nbKey*sizeof(ketb.tb[0])); ;
+    printf("Size ketb=%d\n",ketb.nbKey) ;
+    return ketb ;
+}
+
+
 int get_ind_hash(hash_tb tb,hashCov hC) {
     hashCov * ptHash = bsearch(&hC,tb.hashCov,tb.nbHash,sizeof(hashCov),cmpHashCov);
     if (ptHash == NULL) {
@@ -352,9 +420,23 @@ hashCov covToHash(const typeRemCov *cov) {
     for (int i=0;i<nbPairs;i++) {hC += pow3[i] * cov[i] ;}
     return hC ;
 }
+int keyToCov(hashCov key,typeRemCov *cov) {
+    memset(cov,0,nbPairs);
+    for (int i=nbPairs-1; i>=0; i--) {
+        if (key >= pow3[i]) {
+            cov[i]++ ; key -= pow3[i] ;
+            if (key >= pow3[i]) {
+                cov[i]++ ; key -= pow3[i] ;
+            }
+        }
+    }
+    return key ; // doit etre null
+}
+
+
 time_t t0 ;
 hashCov *  tbHashCov ;
-
+u64 ComputeHash (const typeRemCov *rem0,int nbHashDiff,const HashLeaf * tbHashLeaf) ;
 hashCov hC_compute(const typeRemCov *rem0,const typeRemCov *cov1 ,const Leaf* r2) {
     memcpy(cov, cov1, sizeof(cov)); // init stage1
     for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
@@ -371,12 +453,47 @@ hashCov hC_compute(const typeRemCov *rem0,const typeRemCov *cov1 ,const Leaf* r2
 int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     typeRemCov cov1[nbPairs];
     t0 = time(NULL);
-    const hash_tb hash_ST1 = compact_hash(ST1) ;
-    const hash_tb hash_ST2 = compact_hash(ST2) ;
-    int64_t nbHashAlloc = ((int64_t)hash_ST1.nbHash) * hash_ST2.nbHash ;
+    // const hash_tb hash_ST1 = compact_hash(ST1) ;
+    // const hash_tb hash_ST2 = compact_hash(ST2) ;
+    const key_tb ketb1 = compact_key(ST1) ;
+    const key_tb ketb2 = compact_key(ST2) ;
+    /*{
+        key_tb tb2 ;
+        tb2.nbKey = ST1->nleaf ;
+        tb2.tb = malloc(tb2.nbKey* sizeof(tb2.tb[0])) ;
+        for (int id=0; id<tb2.nbKey; id++) {
+            typeRemCov cov1[nbPairs];
+            memset(cov1, 0, sizeof(cov1));
+            for (int i = 0; i < ST1->nbT; i++) {  // contrib stage 1
+                cov1[ST1->leafs[id].pairs[i]]++ ;
+            }
+            hashCov hC = 0 ;
+            for (int p = 0; p < nbPairs; p++) {
+                hC += pow3[p] * cov1[p] ;
+            }
+            tb2.tb[id].key = hC ;
+            tb2.tb[id].weight = ST1->leafs[id].weight ;
+        }
+        printf("\n") ;
 
+        compute_key_tb_diff(&tb2);
+        printf("nb(hash_ST2)=%d => %d\n",hash_ST1.nbHash,tb2.nbKey) ;
+        for (int i =52373; i< 52383;i++) printf("%lld ",hash_ST1.hashCov[i]) ;
+        printf("\n") ;
+        for (int i =52373; i< 52383;i++) printf("%lld(%lld) ",tb2.tb[i].key,tb2.tb[i].weight) ;
+        printf("\n") ;
+        exit(4);
+    int64_t nbHashAlloc = ((int64_t)hash_ST1.nbHash) * hash_ST2.nbHash ;
     printf("HasCov1 %ld -> %d diff,  HasCov2 %ld -> %d diff Total=%lld MAX=%d\n"
         ,ST1->nleaf,hash_ST1.nbHash,ST2->nleaf,hash_ST2.nbHash,nbHashAlloc,MAX_HASH_ALLOC) ;
+    }*/
+    key_tb ketb ;
+    int64_t nbHashAlloc = (int64_t)ketb1.nbKey * ketb2.nbKey ;
+    printf("HasCov1 %ld -> %d diff,  HasCov2 %ld -> %d diff Total=%lld MAX=%d\n"
+        ,ST1->nleaf,ketb1.nbKey,ST2->nleaf,ketb2.nbKey,nbHashAlloc,MAX_HASH_ALLOC) ;
+
+
+
     int overbook = 0 ;
     int indexConflicts = 0 ;
     if ( nbHashAlloc > MAX_HASH_ALLOC ) {
@@ -385,15 +502,54 @@ int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
         overbook = 1 ;
         nbHashAlloc +=  MAX_CONFLITS ; // rajout de la zone pour gerer les conflits
     }
-    tbHashCov = calloc(nbHashAlloc,sizeof(tbHashCov[0]));
+    ketb.tb = calloc(nbHashAlloc,sizeof(ketb.tb[0]));
     int nb_conflits = 0 ;
     int nb_free = 0 ;
+    for (int i1=0; i1<ketb1.nbKey; i1++) {
+        typeRemCov cov1[nbPairs] ;
+        keyToCov(ketb1.tb[i1].key,cov1);
+        for (int i2=0; i2<ketb2.nbKey; i2++) {
+            typeRemCov cov2[nbPairs] ;
+            keyToCov(ketb2.tb[i2].key,cov2);
+            typeRemCov cov[nbPairs] ;
+            int ok = 1;
+            for (int p=0;p<nbPairs;p++) {
+                cov[p]   = cov1[p]+cov2[p] ;
+                if (cov[p] > 2 || cov[p] + rem0[p] < 2 ) { ok= 0; break ; }
+                rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
+        }
+            if (!ok) continue ;
+            hashCov hC = covToHash(cov) ;
+            int index = i1*ketb2.nbKey+i2 ;
+            if (overbook ) {
+                index &= MAX_HASH_ALLOC-1 ;
+                if  (ketb.tb[index].key !=hC &&  ketb.tb[index].key != 0) {
+                    index = indexConflicts + nb_conflits++ ;
+                    if (nb_conflits >= MAX_CONFLITS) {
+                        fprintf(stderr,"Limite de %d conflits atteinte. %d/%d id faits \n "
+                            ,MAX_CONFLITS,i1,ST1->nleaf) ;
+                        exit(5);
+                    }
+                } else  nb_free++ ;
+            } else {
+                if  (ketb.tb[index].key !=hC  && ketb.tb[index].key != 0 ) nb_conflits++ ;
+                else nb_free++ ;
+            }
+            ketb.tb[index].key = hC ;
+            ketb.tb[index].weight += ketb1.tb[i1].weight * ketb1.tb[i2].weight ;
+        }
+    }
+    ketb.nbKey = nbHashAlloc ;
+    compute_key_tb_diff(&ketb) ;
+    ketb.tb = realloc(ketb.tb,ketb.nbKey*sizeof(ketb.tb[0])) ;
+    printf("Nouvelle taille %d\n",ketb.nbKey) ;
+#if 0
     for (int id = 0; id < ST1->nleaf ; id++) {
         const Leaf *r1 = &ST1->leafs[id];
         memset(cov1, 0, sizeof(cov1));
         for (int i = 0; i < MAXT; i++) {  cov1[r1->pairs[i]]++ ;}
         const hashCov hC1 = covToHash(cov1) ;
-        const int indHash1 = get_ind_hash(hash_ST1,hC1);
+        //x const int indHash1 = get_ind_hash(hash_ST1,hC1);
         for (int q = 0; q < ST2->nleaf; q++) {
             const Leaf *r2 = &ST2->leafs[q];
             int ok = 1;
@@ -430,7 +586,7 @@ int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
             hashCov hC =covToHash(cov) ;
             if (overbook ) {
                 index &= MAX_HASH_ALLOC-1 ;
-                if  (tbHashCov[index] !=hC && tbHashCov[index] != 0) {
+                if  (tbHashCov[index] !=hC &&  tbHashCov[index] != 0) {
                     index = indexConflicts + nb_conflits++ ;
                     if (nb_conflits >= MAX_CONFLITS) {
                         fprintf(stderr,"Limite de %d conflits atteinte. %d/%d id faits \n "
@@ -448,9 +604,19 @@ int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     printf("Fin :%dconflits, Free=%d\n",nb_conflits,nb_free);
     const int nbHashDiff = compute_hash_cov_diff(tbHashCov, nbHashAlloc);
     tbHashCov = realloc(tbHashCov,nbHashDiff*sizeof(hashCov));
-    printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),hash_ST1.nbHash*hash_ST2.nbHash,nbHashDiff);
+#endif
+    printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),ketb1.nbKey*ketb2.nbKey,ketb.nbKey);
+    HashLeaf * tbHashLeaf = calloc (ketb.nbKey, sizeof(HashLeaf));
+    int nbHashLeaf = 0;
+    for (int id=0;id<ketb.nbKey;id++) {
+        if (ketb.tb[id].key== 0 ) continue;
+        keyToCov(ketb.tb[id].key,tbHashLeaf[nbHashLeaf].cov);
+        tbHashLeaf[nbHashLeaf].weight = ketb.tb[id].weight;
+        nbHashLeaf++ ;
+    }
+    ComputeHash (rem0,nbHashLeaf,tbHashLeaf) ;
     fflush(stdout);
-    return nbHashDiff ;
+    return ketb.nbKey ;
 }
 HashLeaf * compute_hashCovWeight(int  nbHashDiff ,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     HashLeaf * tbHashLeaf = calloc (nbHashDiff, sizeof(HashLeaf));
@@ -491,8 +657,6 @@ u64 ComputeHash (const typeRemCov *rem0,int nbHashDiff,const HashLeaf * tbHashLe
             for (typeRemCov p =0; p< nbPairs;  p++) {
             rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
         }
-
-
         cnt = 0;
         bt(0);
         T += (u64) tbHashLeaf[nh].weight * cnt;
@@ -536,8 +700,8 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
     print_info(fp,ST1,ST2);
     printf(" fichier %s, deja faits : %ld\n", fname, nskip);
     int nbHashDiff = compute_hashCov(rem0,ST1,ST2);
-    HashLeaf * tbHashLeaf= compute_hashCovWeight(nbHashDiff ,rem0,ST1,ST2) ;
-    ComputeHash (rem0,nbHashDiff,tbHashLeaf) ;
+    // HashLeaf * tbHashLeaf= compute_hashCovWeight(nbHashDiff ,rem0,ST1,ST2) ;
+
 
     /*
     int freq_ndo = (nb_leaf / 100) +1  ;
@@ -790,7 +954,7 @@ remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
     }
     return remT ;
 }
-static typeRemCov l_rem0[nbRemT];
+static typeRemCov l_rem0[nbPairs] = {0};
 const typeRemCov *   build_rem0(const remT_Type * remT0) {
     for (int i = 0; i < nbRemT; i++) { l_rem0[(*remT0)[i][0]]++; l_rem0[(*remT0)[i][1]]++; l_rem0[(*remT0)[i][2]]++; }
     return l_rem0 ;
