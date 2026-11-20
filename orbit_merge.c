@@ -415,6 +415,16 @@ int get_ind_hash(hash_tb tb,hashCov hC) {
     int indHash = (int)(ptHash -  tb.hashCov) ;
     return indHash ;
 }
+
+
+int get_ind_key(key_tb ktb,hashCov hC) {
+    k_element * ptKey = bsearch(&hC,ktb.tb,ktb.nbKey,sizeof(k_element),cmp_k_element);
+    if (ptKey == NULL) {
+        printf("Error key=%lld not found in table(size=%d)\n",hC,ktb.nbKey); exit (0) ;
+    }
+    int indKey = (int)(ptKey -  ktb.tb) ;
+    return indKey ;
+}
 hashCov covToHash(const typeRemCov *cov) {
     hashCov hC = 0 ;
     for (int i=0;i<nbPairs;i++) {hC += pow3[i] * cov[i] ;}
@@ -505,22 +515,28 @@ int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     ketb.tb = calloc(nbHashAlloc,sizeof(ketb.tb[0]));
     int nb_conflits = 0 ;
     int nb_free = 0 ;
-    for (int i1=0; i1<ketb1.nbKey; i1++) {
+    for (int i1=0; i1<ST1->nleaf; i1++) {
         typeRemCov cov1[nbPairs] ;
-        keyToCov(ketb1.tb[i1].key,cov1);
-        for (int i2=0; i2<ketb2.nbKey; i2++) {
+        memset(cov1,0,nbPairs);
+        for (int p=0;p<ST1->nbT;p++)cov1[ST1->leafs[i1].pairs[p]]++ ;
+        hashCov hC1 = covToHash(cov1) ;
+        const int indKey1 = get_ind_key(ketb1,hC1);
+        for (int i2=0; i2<ST2->nleaf; i2++) {
             typeRemCov cov2[nbPairs] ;
-            keyToCov(ketb2.tb[i2].key,cov2);
+            memset(cov2,0,nbPairs);
+            for (int p=0;p<ST2->nbT;p++)cov2[ST2->leafs[i2].pairs[p]]++ ;
+            hashCov hC2 = covToHash(cov2) ;
+            const int indKey2 = get_ind_key(ketb2,hC2);
             typeRemCov cov[nbPairs] ;
             int ok = 1;
             for (int p=0;p<nbPairs;p++) {
                 cov[p]   = cov1[p]+cov2[p] ;
                 if (cov[p] > 2 || cov[p] + rem0[p] < 2 ) { ok= 0; break ; }
                 rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
-        }
+            }
             if (!ok) continue ;
             hashCov hC = covToHash(cov) ;
-            int index = i1*ketb2.nbKey+i2 ;
+            int index = indKey1*ketb2.nbKey+indKey2 ;
             if (overbook ) {
                 index &= MAX_HASH_ALLOC-1 ;
                 if  (ketb.tb[index].key !=hC &&  ketb.tb[index].key != 0) {
@@ -536,7 +552,10 @@ int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
                 else nb_free++ ;
             }
             ketb.tb[index].key = hC ;
-            ketb.tb[index].weight += ketb1.tb[i1].weight * ketb1.tb[i2].weight ;
+
+//            ketb.tb[index].weight += ketb1.tb[indKey1].weight * ketb2.tb[indKey2].weight ;
+            ketb.tb[index].weight += ST1->leafs[i1].weight * ST2->leafs[i2].weight ;
+            if (hC == 7689830763383)  printf("%d,%d-> %dx%d ",indKey1,indKey2,ST1->leafs[i1].weight,ST2->leafs[i2].weight) ;
         }
     }
     ketb.nbKey = nbHashAlloc ;
