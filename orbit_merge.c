@@ -71,8 +71,13 @@ typedef int8_t typeRemCov ;
 #define nbPairs 28
 #define nbTriplets 56
 
-#define CIBLE 30
+#define CIBLE 24
 #include "cible.h"
+
+// 0x2000000=33 554 432
+#define MAX_HASH_ALLOC 0x2000000
+#define MAX_CONFLITS 60000000
+
 /* ---------------------------------------------------------------- base */
 static typeRemCov pidx[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )
 static typeRemCov P2[nbPairs][2]; // liste des paires
@@ -100,7 +105,7 @@ typedef struct {
 
 typedef struct {
     typeRemCov cov[nbPairs];
-    int32_t weight ;
+    int64_t weight ;
 } HashLeaf;
 
 typedef struct {
@@ -349,9 +354,6 @@ hashCov covToHash(const typeRemCov *cov) {
 }
 time_t t0 ;
 hashCov *  tbHashCov ;
-// 0x2000000=33 554 432
-#define MAX_HASH_ALLOC 0x2000000
-#define MAX_CONFLITS 20000000
 
 hashCov hC_compute(const typeRemCov *rem0,const typeRemCov *cov1 ,const Leaf* r2) {
     memcpy(cov, cov1, sizeof(cov)); // init stage1
@@ -371,9 +373,9 @@ int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     t0 = time(NULL);
     const hash_tb hash_ST1 = compact_hash(ST1) ;
     const hash_tb hash_ST2 = compact_hash(ST2) ;
-    int nbHashAlloc = hash_ST1.nbHash * hash_ST2.nbHash ;
+    int64_t nbHashAlloc = ((int64_t)hash_ST1.nbHash) * hash_ST2.nbHash ;
 
-    printf("HasCov1 %ld -> %d diff,  HasCov2 %ld -> %d diff Total=%d MAX=%d\n"
+    printf("HasCov1 %ld -> %d diff,  HasCov2 %ld -> %d diff Total=%lld MAX=%d\n"
         ,ST1->nleaf,hash_ST1.nbHash,ST2->nleaf,hash_ST2.nbHash,nbHashAlloc,MAX_HASH_ALLOC) ;
     int overbook = 0 ;
     int indexConflicts = 0 ;
@@ -430,6 +432,11 @@ int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
                 index &= MAX_HASH_ALLOC-1 ;
                 if  (tbHashCov[index] !=hC && tbHashCov[index] != 0) {
                     index = indexConflicts + nb_conflits++ ;
+                    if (nb_conflits >= MAX_CONFLITS) {
+                        fprintf(stderr,"Limite de %d conflits atteinte. %d/%d id faits \n "
+                            ,MAX_CONFLITS,id,ST1->nleaf) ;
+                        exit(5);
+                    }
                 } else  nb_free++ ;
             } else {
                 if  (tbHashCov[index] !=hC  && tbHashCov[index] != 0 ) nb_conflits++ ;
@@ -467,7 +474,7 @@ HashLeaf * compute_hashCovWeight(int  nbHashDiff ,const typeRemCov *rem0,const S
             if (tbHashLeaf[indHash].weight ==0) {
                 memcpy(tbHashLeaf[indHash].cov, cov, sizeof(cov));
             }
-            tbHashLeaf[indHash].weight += r1->weight * r2->weight ;
+            tbHashLeaf[indHash].weight += (int64_t)r1->weight * r2->weight ;
             cnt = 0;
             nbCallBt++ ;
         }
