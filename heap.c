@@ -216,7 +216,7 @@ static void DHEAP_InsertFromDown(DHEAP_DATA *dhp)
 	if(  (id > 0) &&
 		 (dhp->comp(dhp->data[idu],dhp->data[dhp->downToUp[jd]], ptUser) < 0) ) {
 		
-		/* il faut faire remonter l'‚lement */
+		/* il faut faire remonter l'Â‚lement */
 		do {
 			/* on remonte l'element tant qu'il est inferieur au pere */
 			dhp->downToUp[id] = dhp->downToUp[jd] ;
@@ -1324,7 +1324,7 @@ static void DHEAPIND_InsertFromDown(DHEAP_INDEX *dhp) {
 	if(  (id > 0) &&
         (dhp->comp(dhp->index[idu],dhp->index[dhp->downToUp[jd]], ptUser) < 0) ) {
 		
-		/* il faut faire remonter l'‚lement */
+		/* il faut faire remonter l'Â‚lement */
 		do {
 			/* on remonte l'element tant qu'il est inferieur au pere */
 			dhp->downToUp[id] = dhp->downToUp[jd] ;
