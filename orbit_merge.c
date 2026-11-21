@@ -142,13 +142,14 @@ void stage_phase1(Stage *S) ;
 remT_Type * build_remT(const Stage *ST1,const Stage *ST2) ;
 const typeRemCov *   build_rem0(const remT_Type * remT) ;
 
-void check_sum(long nb_leaf,char *name_fp ) ;
-static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2,const key_tb ktb) ;
+void check_sum(long nb_key,char *name_fp ) ;
+static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2,key_tb ktb) ;
+static void print_info_ktb(FILE * fout,u64 wAssign,key_tb ktb) ;
 void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
 
 static int gen_group(int lo, int m, int perms[][8]) ;
 static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
-void compute_jobs( const char *fileName,const typeRemCov *rem0, key_tb ktb) ;
+void compute_jobs( const char *fileName,const typeRemCov *rem0,u64 wAssign, key_tb ktb) ;
 
 remT_Type * get_remT(remT_Type * remT) {
     static remT_Type * initRemT = NULL ;
@@ -185,7 +186,7 @@ int main(int argc, char **argv){
     stage_phase1(ST2);  printf("ST2 phase 1 OK\n");
 
     fprintf(stderr, "[orbites construites en %.1f s]\n", (double)(clock() - c0) / CLOCKS_PER_SEC);
-    if (argc >= 3 && strcmp(argv[1], "--sample") == 0) { int K = atoi(argv[2]); compute_sample(K,rem0,ST1,ST2); return 0; }
+ //   if (argc >= 3 && strcmp(argv[1], "--sample") == 0) { int K = atoi(argv[2]); compute_sample(K,rem0,ST1,ST2); return 0; }
     key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
     if (argc >= 2 && strcmp(argv[1], "--info") == 0) {
         print_info(stdout,ST1,ST2,ktb); return 0;
@@ -202,7 +203,7 @@ int main(int argc, char **argv){
     // *********  phase 2 **************************
     // developpement des feuilles par developpement recursif sur les paires de bt()
     // suivant ls
-    compute_jobs(fname,rem0,ktb) ;
+    compute_jobs(fname,rem0,((u64) ST1->wAssign)*ST2->wAssign,ktb) ;
     return 0;
 }
 /************ BEGIN ***************** phase 1 pour ST2 et ST1 *****************************/
@@ -299,22 +300,9 @@ static void stage_leaf(Stage *S)
 /************ END ***************** phase 1 pour ST2 puis ST1 *****************************/
 
 /**** BEGIN ************************** phase 2 (jobs) *****************************/
-// donnees partagées par run_job() et bt()
+// donnees partagées par bt()
 static typeRemCov  cov[nbPairs] ;
 static typeRemCov rem_cov[nbPairs] ;
-
-static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2) ;
-static clock_t jobs_total = 0;
-static clock_t bt_total = 0;
-
-/*
-int cmpHashCov(const void * h1, const void * h2) {
-    hashCov diff = *(const hashCov *)h1 - *(const hashCov *)h2 ;
-    if (diff > 0) return 1 ;
-    else if (diff < 0) return -1 ;
-    else return 0 ;
-}
-*/
 
 int cmp_k_element (const void * k1, const void * k2) {
     hashCov diff = ((const k_element *)k1)->key - ((const k_element *)k2)->key ;
@@ -327,7 +315,6 @@ void merge_k_element(k_element *k1,const k_element *k2) {
 }
 
 int compute_key_tb_diff (key_tb * tb_elem) {
-    //qsort(tbHashCov,nbHashCov,sizeof(hashCov),cmpHashCov);
     qsort(tb_elem->tb,tb_elem->nbKey,sizeof(k_element),cmp_k_element) ;
     hashCov ant_key = tb_elem->tb[0].key ;
     int nbElemDif = 1 ;
@@ -349,24 +336,93 @@ int compute_key_tb_diff (key_tb * tb_elem) {
 }
 
 static u64 cnt ;
-/*
-int compute_hash_cov_diff (hashCov *tbHashCov, int nbHashCov) {
-    qsort(tbHashCov,nbHashCov,sizeof(hashCov),cmpHashCov);
-    hashCov antCov = 0 ;
-    int nbHashDif = 0 ;
-    for (int i=0;i< nbHashCov ;i++) {
-        if ( tbHashCov[i] != antCov)  {
-            if (nbHashDif != i) {
-                tbHashCov[nbHashDif++] = tbHashCov[i] ;
-            } else {
-                nbHashDif++ ;
+key_tb compact_key(const Stage *ST);
+
+
+hashCov covToKey(const typeRemCov *cov_) {
+    hashCov hC = 0 ;
+    for (int i=0;i<nbPairs;i++) {hC += pow3[i] * cov_[i] ;}
+    return hC ;
+}
+int keyToCov(hashCov key,typeRemCov *cov_) {
+    memset(cov_,0,nbPairs);
+    for (int i=nbPairs-1; i>=0; i--) {
+        if (key >= pow3[i]) {
+            cov_[i]++ ; key -= pow3[i] ;
+            if (key >= pow3[i]) {
+                cov_[i]++ ; key -= pow3[i] ;
             }
-            antCov = tbHashCov[i] ;
         }
     }
-    return nbHashDif ;
+    return (key ? 1:0) ; // doit etre null
 }
-*/
+
+
+time_t t0 ;
+//hashCov *  tbHashCov ;
+static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
+    t0 = time(NULL);
+    const key_tb ketb1 = compact_key(ST1) ;
+    const key_tb ketb2 = compact_key(ST2) ;
+    key_tb ketb ;
+    int64_t nbKeyAlloc = (int64_t)ketb1.nbKey * ketb2.nbKey ;
+    printf("Etage 1 %ld->%d ,  Etage 2 %ld->%d  Total=%dx%d=%lld MAX=%d\n"
+        ,ST1->nleaf,ketb1.nbKey,ST2->nleaf,ketb2.nbKey,ketb1.nbKey,ketb2.nbKey,nbKeyAlloc,MAX_HASH_ALLOC) ;
+    int overbook = 0 ;
+    int indexConflicts = 0 ;
+    if ( nbKeyAlloc > MAX_HASH_ALLOC ) {
+        nbKeyAlloc = MAX_HASH_ALLOC ;
+        indexConflicts = nbKeyAlloc ;
+        overbook = 1 ;
+        nbKeyAlloc +=  MAX_CONFLITS ; // rajout de la zone pour gerer les conflits
+    }
+    ketb.tb = calloc(nbKeyAlloc,sizeof(ketb.tb[0]));
+    int nb_conflits = 0 ;
+    for (int i1=0; i1<ketb1.nbKey; i1++) {
+        for (int i2=0; i2<ketb2.nbKey; i2++) {
+            typeRemCov cov_[nbPairs] ;
+            hashCov hC = ketb1.tb[i1].key + ketb2.tb[i2].key ;
+            keyToCov(hC,cov_) ;
+            int ok = 1;
+            for (int p=0;p<nbPairs;p++) {
+                if (cov_[p] > 2 || cov_[p] + rem0[p] < 2 ) { ok= 0; break ; }
+                rem_cov[p] = (typeRemCov)(cov_[p] + rem0[p]) ;
+            }
+            if (!ok) continue ;
+            int index = i1*ketb2.nbKey+i2 ;
+            if (overbook ) {
+                index &= MAX_HASH_ALLOC-1 ;
+                if  (ketb.tb[index].key !=hC &&  ketb.tb[index].key != 0) {
+                    index = indexConflicts + nb_conflits++ ;
+                    if (nb_conflits >= MAX_CONFLITS) {
+                        fprintf(stderr,"Limite de %d conflits atteinte. %d/%ld id faits \n "
+                            ,MAX_CONFLITS,i1,ST1->nleaf) ;
+                        exit(5);
+                    }
+                } else {
+                    if  (ketb.tb[index].key !=hC  && ketb.tb[index].key != 0 ) nb_conflits++ ;
+                }
+            }
+            ketb.tb[index].key = hC ;
+            ketb.tb[index].weight += ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
+        }
+    }
+    ketb.nbKey = nbKeyAlloc ;
+    compute_key_tb_diff(&ketb) ;
+    ketb.tb = realloc(ketb.tb,ketb.nbKey*sizeof(ketb.tb[0])) ;
+    printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),ketb1.nbKey*ketb2.nbKey,ketb.nbKey);
+    HashLeaf * tbKeyLeaf = calloc (ketb.nbKey, sizeof(HashLeaf));
+    int nbKeyLeaf = 0;
+    for (int id=0;id<ketb.nbKey;id++) {
+        if (ketb.tb[id].key== 0 ) continue;
+        keyToCov(ketb.tb[id].key,tbKeyLeaf[nbKeyLeaf].cov);
+        tbKeyLeaf[nbKeyLeaf].weight = ketb.tb[id].weight;
+        nbKeyLeaf++ ;
+    }
+    fflush(stdout);
+    return ketb ;
+}
+
 key_tb compact_key(const Stage *ST) {
     key_tb ketb ;
     ketb.tb =  malloc(ST->nleaf*sizeof(ketb.tb[0])); ;
@@ -391,128 +447,15 @@ key_tb compact_key(const Stage *ST) {
     return ketb ;
 }
 
-
-hashCov covToKey(const typeRemCov *cov) {
-    hashCov hC = 0 ;
-    for (int i=0;i<nbPairs;i++) {hC += pow3[i] * cov[i] ;}
-    return hC ;
-}
-int keyToCov(hashCov key,typeRemCov *cov) {
-    memset(cov,0,nbPairs);
-    for (int i=nbPairs-1; i>=0; i--) {
-        if (key >= pow3[i]) {
-            cov[i]++ ; key -= pow3[i] ;
-            if (key >= pow3[i]) {
-                cov[i]++ ; key -= pow3[i] ;
-            }
-        }
-    }
-    return key ; // doit etre null
-}
-
-
-time_t t0 ;
-hashCov *  tbHashCov ;
-// u64 develop_keys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf) ;
-
-static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
-    t0 = time(NULL);
-    const key_tb ketb1 = compact_key(ST1) ;
-    const key_tb ketb2 = compact_key(ST2) ;
-    key_tb ketb ;
-    int64_t nbKeyAlloc = (int64_t)ketb1.nbKey * ketb2.nbKey ;
-    printf("Etage 1 %ld->%d ,  Etage 2 %ld->%d  Total=%dx%d=%lld MAX=%d\n"
-        ,ST1->nleaf,ketb1.nbKey,ST2->nleaf,ketb2.nbKey,ketb1.nbKey,ketb2.nbKey,nbKeyAlloc,MAX_HASH_ALLOC) ;
-    int overbook = 0 ;
-    int indexConflicts = 0 ;
-    if ( nbKeyAlloc > MAX_HASH_ALLOC ) {
-        nbKeyAlloc = MAX_HASH_ALLOC ;
-        indexConflicts = nbKeyAlloc ;
-        overbook = 1 ;
-        nbKeyAlloc +=  MAX_CONFLITS ; // rajout de la zone pour gerer les conflits
-    }
-    ketb.tb = calloc(nbKeyAlloc,sizeof(ketb.tb[0]));
-    int nb_conflits = 0 ;
-    // int nb_free = 0 ;
-    for (int i1=0; i1<ketb1.nbKey; i1++) {
-        for (int i2=0; i2<ketb2.nbKey; i2++) {
-            typeRemCov cov[nbPairs] ;
-            hashCov hC = ketb1.tb[i1].key + ketb2.tb[i2].key ;
-            keyToCov(hC,cov) ;
-            int ok = 1;
-            for (int p=0;p<nbPairs;p++) {
-                if (cov[p] > 2 || cov[p] + rem0[p] < 2 ) { ok= 0; break ; }
-                rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
-            }
-            if (!ok) continue ;
-            int index = i1*ketb2.nbKey+i2 ;
-            if (overbook ) {
-                index &= MAX_HASH_ALLOC-1 ;
-                if  (ketb.tb[index].key !=hC &&  ketb.tb[index].key != 0) {
-                    index = indexConflicts + nb_conflits++ ;
-                    if (nb_conflits >= MAX_CONFLITS) {
-                        fprintf(stderr,"Limite de %d conflits atteinte. %d/%d id faits \n "
-                            ,MAX_CONFLITS,i1,ST1->nleaf) ;
-                        exit(5);
-                    }
-                } else {
-                    if  (ketb.tb[index].key !=hC  && ketb.tb[index].key != 0 ) nb_conflits++ ;
-                }
-            }
-            ketb.tb[index].key = hC ;
-            ketb.tb[index].weight += ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
-        }
-    }
-    ketb.nbKey = nbKeyAlloc ;
-    compute_key_tb_diff(&ketb) ;
-    ketb.tb = realloc(ketb.tb,ketb.nbKey*sizeof(ketb.tb[0])) ;
-    // printf("Nouvelle taille %d\n",ketb.nbKey) ;
-    printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),ketb1.nbKey*ketb2.nbKey,ketb.nbKey);
-    HashLeaf * tbKeyLeaf = calloc (ketb.nbKey, sizeof(HashLeaf));
-    int nbKeyLeaf = 0;
-    for (int id=0;id<ketb.nbKey;id++) {
-        if (ketb.tb[id].key== 0 ) continue;
-        keyToCov(ketb.tb[id].key,tbKeyLeaf[nbKeyLeaf].cov);
-        tbKeyLeaf[nbKeyLeaf].weight = ketb.tb[id].weight;
-        nbKeyLeaf++ ;
-    }
-    // ComputeKeys (rem0,nbKeyLeaf,tbKeyLeaf) ;
-    fflush(stdout);
-    return ketb ;
-}
-/*
-u64 develop_keys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf) {
-    u64 T = 0 ;
-    int nh_period = nbKeyDiff / 100 ;
-    for (int np=0,nh = 0; nh < nbKeyDiff ; np++, nh++) {
-        memcpy(cov,tbKeyLeaf[nh].cov, sizeof(cov));
-            for (typeRemCov p =0; p< nbPairs;  p++) {
-            rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
-        }
-        cnt = 0;
-        bt(0);
-        T += (u64) tbKeyLeaf[nh].weight * cnt;
-        if (np == nh_period ) {
-            printf("%lds %d->%lld\n",(long)(time(NULL) - t0),nh,T); fflush(stdout);
-            np = 0 ;
-        }
-    }
-    printf("%lds T=%lld \n",(long)(time(NULL) - t0),T);
-    return T ;
-}
-*/
-void compute_jobs( const char *fileName,const typeRemCov *rem0, key_tb ktb)   {
+void compute_jobs( const char *fileName,const typeRemCov *rem0,u64 wAssign, key_tb ktb)   {
     // long nb_leaf = ST1->nleaf;
     char fname[64];
-    t0 = time(NULL);
+    // t0 = time(NULL);
     if (fileName != NULL) {
         strcpy(fname, fileName);
     } else {
         sprintf(fname, "resv2_%s_%d.txt",CIBLE_NAME,0);
     }
-    //key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
-
-    // char *done = (char *)calloc((size_t)ktb.nbKey, 1);
     FILE *fp = fopen(fname, "r");
     int begin_jid = 0 ;
     u64 Total = 0 ;
@@ -531,11 +474,11 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0, key_tb ktb)   {
         }
         fclose(fp);
     }
-    //print_info(stdout,ST1,ST2,ktb);
+    print_info_ktb(stdout,wAssign,ktb);
     fp = fopen(fname, "a");
     if (!fp) { perror("res"); return ; }
-    //print_info(fp,ST1,ST2,ktb);
-    printf(" fichier %s, deja faits : %ld\n", fname, begin_jid);
+    print_info_ktb(fp,wAssign,ktb);
+    printf(" fichier %s, deja faits : %d\n", fname, begin_jid);
 
     int nh_period = ktb.nbKey / 100 ;
     nh_period -= (nh_period % 10000) ;
@@ -558,97 +501,21 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0, key_tb ktb)   {
         Total +=  ktb.tb[nh].weight * T;
         if (np == nh_period ) {
             printf("%lds %d->%lld\n",(long)(time(NULL) - t0),nh,Total); fflush(stdout);
-            fprintf(fp, "%lld %llu\n", nh,Total);
+            fprintf(fp, "%d %llu\n", nh,Total);
             np = 0 ;
         }
     }
     if (nh <= ktb.nbKey) {
         fprintf(fp, "%d %llu\n", nh,Total);
         printf("%lds %d=> T=%lld \n",(long)(time(NULL) - t0),nh,Total);
-        fprintf(fp,"#[%lds] %ld jobs faits dans cette session %s (dernier id %ld) Total=%d\n",
+        fprintf(fp,"#[%lds] %d jobs faits dans cette session %s (dernier id %d) Total=%lld\n",
            (long)(time(NULL) - t0), ktb.nbKey,CIBLE_NAME,ktb.nbKey,Total);
     }
 
     fclose(fp);
     check_sum(ktb.nbKey,fname ) ;
-
-    // return T ;
-
-
-
-    // HashLeaf * tbHashLeaf= compute_hashCovWeight(nbHashDiff ,rem0,ST1,ST2) ;
-
-
-    /*
-    int freq_ndo = (nb_leaf / 100) +1  ;
-    int mod_ndo = 0;
-    for (long id = 0; id < nb_leaf; id ++) {
-        // for (long id = nb_leaf-1; id >= 0; id --) {
-        if (done[id]) continue;
-        u64 T = run_job(id,rem0,ST1,ST2);
-        fprintf(fp, "%ld %d %llu\n", id, (int)ST1->leafs[id].weight, T);
-        mod_ndo++;
-        if (mod_ndo == freq_ndo) {
-            fflush(fp);
-            printf("[%lds](%.3f,%.3f)T=%lld %ld jobs faits dans cette session (dernier id %ld)\n",
-                   (long)(time(NULL) - t0),jobs_total /(double) CLK_TCK,bt_total/(double) CLK_TCK,T, ndo+mod_ndo, id);
-            ndo += mod_ndo;
-            mod_ndo = 0 ;
-        }
-    }
-    fprintf(fp,"#[%lds] %ld jobs faits dans cette session %s (dernier id %ld)\n",
-           (long)(time(NULL) - t0), ndo,CIBLE_NAME, nb_leaf);
-    fclose(fp);
-    check_sum(nb_leaf,fname ) ;
-    */
 }
 
-
-// un job = un representant de l'etage 1 ; retourne T = somme w2*count
-// rem0 contient les paires disponibles pour les triplets non developpés
-// rem0 est fixe
-// les triplets developpés sont fixe : ceux dans ST1 (20 si permut [01..6[) et ceux ds la liste de ST2
-static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2)
-{
-    clock_t deb = clock() ;
-    typeRemCov cov1[nbPairs];
-    u64 T = 0;
-    const Leaf *r1 = &ST1->leafs[id];
-    memset(cov1, 0, sizeof(cov1));
-    for (int i = 0; i < MAXT; i++) {  // contrib stage 1
-        cov1[r1->pairs[i]]++ ;
-    }
-    for (int q = 0; q < ST2->nleaf; q++) {
-        const Leaf *r2 = &ST2->leafs[q];
-        int ok = 1;
-        memcpy(cov, cov1, sizeof(cov1)); // init stage1
-        for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
-            typeRemCov p = r2->pairs[i] ;
-            if (cov[p]>=2 ) { ok = 0; break ;}
-            cov[p]++;
-        }
-        if (ok) {
-            for (typeRemCov p =0; p< nbPairs;  p++) {
-                if (cov[p] + rem0[p] < 2) { ok = 0; break; }
-                rem_cov[p] =  (typeRemCov)(cov[p] + rem0[p]) ;
-            }
-        }
-        if (!ok) continue;
-        hashCov hC = 0 ;
-        for (int p = 0; p < nbPairs; p++) {
-            hC += pow3[cov[p]] ;
-        }
-        clock_t deb_bt = clock() ;
-        cnt = 0;
-        bt(0);
-        T += (u64)r2->weight * cnt;
-        clock_t end_bt = clock() ;
-        bt_total += end_bt - deb_bt;
-    }
-    clock_t end = clock();
-    jobs_total += end- deb ;
-    return T;
-}
 // recursif, developpe les triplets complementaires (nbRemT) en phase 2 apres ceux developpes par les permutations
 // va de niveau 0 a nbRemT (56-(20+6)
 // calcule cnt le nombre de developpements possibles.
@@ -682,7 +549,7 @@ static void bt(const int k)
 
 /*************************************** routines tritement options de main() **************/
 /* -------------------------------------------------------- main */
-static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2,const key_tb ktb) {
+static void print_info_ST(FILE * fout,const Stage *ST1,const Stage *ST2) {
     long  tw1 = 0, tw2 = 0, full = 0;
     for (long i = 0; i < ST1->nleaf; i++) { tw1 += ST1->leafs[i].weight; if (ST1->leafs[i].weight == ST1->nbPerm) full++; }
     for (long i = 0; i < ST2->nleaf; i++) tw2 += ST2->leafs[i].weight;
@@ -690,17 +557,28 @@ static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2,const key_t
            "(somme poids = %ld, orbites pleines de %d : %ld)\n", ST1->wAssign,ST1->nbT, ST1->nleaf, tw1,ST1->nbPerm, full);
     fprintf(fout,"# Etage 2 : %ld affectations faisables de W2 (%d triplets), %ld orbites sous S2 "
            "(somme poids = %ld)\n", ST2->wAssign,ST2->nbT, ST2->nleaf, tw2);
-    fprintf(fout,"# Nombre de developpement (apres le merge) = %ld \n",
-           ktb.nbKey);
-    fprintf(fout,"# Gain nominal sur les configurations de depart : %.1f\n",
-           (double)ST1->wAssign * ST2->wAssign / ((double)ktb.nbKey));
     fprintf(fout,"# Triplets restants a parcourir : %d\n", nbRemT);
     fflush(fout);
 }
+
+static void print_info_ktb(FILE * fout,u64 wAssign,const key_tb ktb) {
+    fprintf(fout,"# Nombre de developpement (apres le merge) = %ld \n",
+           ktb.nbKey);
+    fprintf(fout,"# Gain nominal sur les %lld configurations de depart : %.1f\n",
+           wAssign,(double)wAssign / ((double)ktb.nbKey));
+    fflush(fout);
+}
+
+static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2,const key_tb ktb) {
+    print_info_ST(fout,ST1,ST2);
+    print_info_ktb(fout,((u64)ST1->wAssign)*ST2->wAssign,ktb);
+    fflush(fout);
+}
+
 void check_sum(long nb_key,char *name_fp ) {
     unsigned long long total = 0;
     long  missing = 0;
-    printf("CHECLSUM nb_key=%d\n", nb_key);
+    printf("CHECKSUM nb_key=%d\n", nb_key);
     FILE *fp = fopen(name_fp, "r");
     long jid;  u64 T;
     if (!fp) {
@@ -727,22 +605,6 @@ void check_sum(long nb_key,char *name_fp ) {
                total == 125047355835960ULL ? "IDENTIQUE" : "DIFFERENT");
 
 }
-void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
-    long nb_leaf = ST1->nleaf ;
-    long step = nb_leaf / K;
-    t0 = clock() ;
-    double sumT = 0.0;
-    for (int i = 0; i < K; i++) {
-        long id = (long)i * step + step / 2;
-        sumT += (double)ST1->leafs[id].weight * (double)run_job(id,rem0,ST1,ST2);
-    }
-    double dt = (double)(clock()-t0) / CLOCKS_PER_SEC ;
-    printf("%d jobs echantillonnes sur %ld : %.2f s  (%.4f s/job)\n", K, nb_leaf, dt, dt / K);
-    printf("Temps total estime (1 coeur) : %.0f s = %.1f h\n", dt / K * nb_leaf, dt / K * nb_leaf / 3600.0);
-    printf("Estimation de N (tres approximative) : %.3e\n", sumT / K * nb_leaf);
-
-}
-
 /*********************** routines de construction *****************************************/
 static Stage * build_ST1(void) {
     static int perms1[NBPERM1][8] ; // liste des NBPERM permutation de [0..PERM1[
