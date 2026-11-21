@@ -37,7 +37,6 @@
 #include <stdio.h>		/* Fcts systeme */
 #include <stdlib.h>
 
-
 #include "heap.h"
 
 
@@ -69,7 +68,7 @@ struct DHEAP_DATA {
 
 
 
-static void HEAP_InsertFromTop(HEAP_DATA *hp,const void *element, int isUnique) ;
+static void HEAP_InsertFromTop(HEAP_DATA *hp,const void *element) ;
 static void DHEAP_InsertFromTop(DHEAP_DATA *hp,const void *element) ;
 static void DHEAP_InsertFromDown(DHEAP_DATA *hp) ;
 static int HEAP_LocalComp(const void * el1, const void * el2, void * ptUser);
@@ -94,8 +93,7 @@ static int DHEAP_LocalComp(const void * el1, const void * el2, void * ptUser);
  */
 static void HEAP_InsertFromTop(
 	HEAP_DATA	*hp,
-	const void	*element,
-	int isUnique)
+	const void	*element)
 {
 	uint32_t i=0 , j = 1 ;
 	void * ptUser;
@@ -114,15 +112,13 @@ static void HEAP_InsertFromTop(
 		}
 		
 		/* on regarde si l'element est plus grand que les fils */
-		int lastComp ;
-		if((lastComp=hp->comp(element,hp->data[j] ,ptUser)) < 0 ) {
+		if(hp->comp(element,hp->data[j] ,ptUser) < 0 ) {
 			/* non , on continue la descente en faisant remonter le plus
 			grand des fils  */
 			hp->data[i] = hp->data[j] ;
 			i = j ;
 			j += j + 1 ;
 		} else {
-			if (isUnique && lastComp == 0) { return ;}
 			/* oui on arrete la */
 			break ;
 		}
@@ -545,7 +541,7 @@ void * HEAP_GetFirst(HEAP_DATA *hp)
 		hp->isTopFirst = 0 ;   /* le meilleure est en tete on le retourne */
 	} else {
 		/* on va faire remonter le dernier element pour recupere la tete */
-		HEAP_InsertFromTop(hp,hp->data[hp->size],0) ;
+		HEAP_InsertFromTop(hp,hp->data[hp->size]) ;
 	}
 	
 	hp->size-- ;  /* mise a jour de la taille de la pile */
@@ -617,9 +613,9 @@ void * DHEAP_GetFirst(DHEAP_DATA *dhp)
  *  -1 si erreur
  * -----------------------------------------------------------------------------
  */
-static int  HEAP_Insert_Unique_ornot(
+int  HEAP_Insert(
 	HEAP_DATA *hp,
-	const void *element, int isUnique)
+	const void *element)
 {
 	void * ptUser;
 	if(hp->compSimple == NULL) {
@@ -655,22 +651,11 @@ static int  HEAP_Insert_Unique_ornot(
 
 		hp->isTopFirst = 1 ;
 		hp->size++;
-		HEAP_InsertFromTop(hp,element,isUnique) ;
+		HEAP_InsertFromTop(hp,element) ;
 	}
     return 0 ;
 }
 
-int  HEAP_Insert_Unique(
-	HEAP_DATA *hp,
-	const void *element) {
-	return HEAP_Insert_Unique_ornot(hp,element,1);
-}
-
-int  HEAP_Insert(
-	HEAP_DATA *hp,
-	const void *element) {
-	return HEAP_Insert_Unique_ornot(hp,element,0);
-}
 /* -----------------------------------------------------------------------------
  * Fonction	: HEAP_Reorg
  *

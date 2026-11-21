@@ -409,26 +409,9 @@ int keyToCov(hashCov key,typeRemCov *cov) {
 time_t t0 ;
 hashCov *  tbHashCov ;
 u64 ComputeKeys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf) ;
-/*
-hashCov hC_compute(const typeRemCov *rem0,const typeRemCov *cov1 ,const Leaf* r2) {
-    memcpy(cov, cov1, sizeof(cov)); // init stage1
-    for (typeRemCov i = 0; i < SIZE_W2; i++) {   // add stage2
-        typeRemCov p = r2->pairs[i] ;
-        if (cov[p]>=2 ) { return 0 ;}
-        cov[p]++;
-    }
-    for (typeRemCov p =0; p< nbPairs;  p++) {
-        if (cov[p] + rem0[p] < 2) { return 0 ; }
-        rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
-    }
-    return covToKey(cov) ;
-}
-*/
+
 int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
-    // typeRemCov cov1[nbPairs];
     t0 = time(NULL);
-    // const hash_tb hash_ST1 = compact_hash(ST1) ;
-    // const hash_tb hash_ST2 = compact_hash(ST2) ;
     const key_tb ketb1 = compact_key(ST1) ;
     const key_tb ketb2 = compact_key(ST2) ;
      key_tb ketb ;
