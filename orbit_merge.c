@@ -140,6 +140,7 @@ void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *
 static int gen_group(int lo, int m, int perms[][8]) ;
 
 void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
+
 remT_Type * get_remT(remT_Type * remT) {
     static remT_Type * initRemT = NULL ;
     if ( remT == NULL ) {
@@ -149,6 +150,7 @@ remT_Type * get_remT(remT_Type * remT) {
         return remT ;
     }
 }
+
 static void bt(int k) ;
 
 int main(int argc, char **argv){
@@ -180,7 +182,7 @@ int main(int argc, char **argv){
     if (argc >= 3 && strcmp(argv[1], "--sample") == 0) { int K = atoi(argv[2]); compute_sample(K,rem0,ST1,ST2); return 0; }
     char fname[64];
     if ( argc > 1) { strcpy(fname, argv[1]); } else {
-        sprintf(fname, "res_%s_%d.txt",CIBLE_NAME, 0);
+        sprintf(fname, "resv2_%s_%d.txt",CIBLE_NAME, 0);
     }
     // *********  phase 2 **************************
     // developpement des feuilles par developpement recursif sur les paires de bt()
@@ -410,11 +412,11 @@ time_t t0 ;
 hashCov *  tbHashCov ;
 u64 ComputeKeys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf) ;
 
-int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
+key_tb compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     t0 = time(NULL);
     const key_tb ketb1 = compact_key(ST1) ;
     const key_tb ketb2 = compact_key(ST2) ;
-     key_tb ketb ;
+    key_tb ketb ;
     int64_t nbKeyAlloc = (int64_t)ketb1.nbKey * ketb2.nbKey ;
     printf("HasCov1 %ld -> %d diff,  HasCov2 %ld -> %d diff Total=%lld MAX=%d\n"
         ,ST1->nleaf,ketb1.nbKey,ST2->nleaf,ketb2.nbKey,nbKeyAlloc,MAX_HASH_ALLOC) ;
@@ -472,9 +474,9 @@ int compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
         tbKeyLeaf[nbKeyLeaf].weight = ketb.tb[id].weight;
         nbKeyLeaf++ ;
     }
-    ComputeKeys (rem0,nbKeyLeaf,tbKeyLeaf) ;
+    // ComputeKeys (rem0,nbKeyLeaf,tbKeyLeaf) ;
     fflush(stdout);
-    return ketb.nbKey ;
+    return ketb ;
 }
 u64 ComputeKeys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf) {
     u64 T = 0 ;
@@ -503,18 +505,23 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
     if (fileName != NULL) {
         strcpy(fname, fileName);
     } else {
-        sprintf(fname, "res_%s_%d.txt",CIBLE_NAME,0);
+        sprintf(fname, "resv2_%s_%d.txt",CIBLE_NAME,0);
     }
-    char *done = (char *)calloc((size_t)nb_leaf, 1);
+    key_tb ktb = compute_hashCov(rem0,ST1,ST2);
+
+    // char *done = (char *)calloc((size_t)ktb.nbKey, 1);
     FILE *fp = fopen(fname, "r");
+    int begin_jid = 0 ;
+    u64 Total = 0 ;
     if (fp) {
-        long jid; int w; u64 T;
+
+        long jid; hashCov w; u64 T;
         char line[200] ;
         while (fgets(line,200,fp)) {
             if (line[0] != '#') {
-                if (sscanf(line, "%ld %d %llu", &jid, &w, &T) == 3) {
-                    if (jid >= 0 && jid < nb_leaf) {
-                        done[jid] = 1; nskip++;
+                if (sscanf(line, "%ld %llu", &jid, &Total) == 2) {
+                    if (jid >= begin_jid  && jid <= ktb.nbKey) {
+                        begin_jid = jid ;
                     }
                 }
             }
@@ -525,8 +532,47 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
     fp = fopen(fname, "a");
     if (!fp) { perror("res"); return ; }
     print_info(fp,ST1,ST2);
-    printf(" fichier %s, deja faits : %ld\n", fname, nskip);
-    int nbHashDiff = compute_hashCov(rem0,ST1,ST2);
+    printf(" fichier %s, deja faits : %ld\n", fname, begin_jid);
+
+    int nh_period = ktb.nbKey / 100 ;
+    nh_period -= (nh_period % 10000) ;
+    int nh= 0 ;
+    int np = 0 ;
+    if (begin_jid) {
+        nh = begin_jid+1 ;
+        np=1 ;
+    }
+    for (; nh < ktb.nbKey ; np++, nh++) {
+        hashCov key = ktb.tb[nh].key ;
+        keyToCov(key,cov);
+        // memcpy(cov,ktb.tb[nh]., sizeof(cov));
+        for (typeRemCov p =0; p< nbPairs;  p++) {
+            rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
+        }
+        cnt = 0;
+        bt(0);
+        u64 T =  cnt ;
+        Total +=  ktb.tb[nh].weight * T;
+        if (np == nh_period ) {
+            printf("%lds %d->%lld\n",(long)(time(NULL) - t0),nh,Total); fflush(stdout);
+            fprintf(fp, "%lld %llu\n", nh,Total);
+            np = 0 ;
+        }
+    }
+    if (nh <= ktb.nbKey) {
+        fprintf(fp, "%lld %llu\n", nh,Total);
+        printf("%lds %lld=> T=%lld \n",(long)(time(NULL) - t0),nh,Total);
+        fprintf(fp,"#[%lds] %ld jobs faits dans cette session %s (dernier id %ld) Total=%lld\n",
+           (long)(time(NULL) - t0), ktb.nbKey,CIBLE_NAME,ktb.nbKey,Total);
+    }
+
+    fclose(fp);
+    check_sum(ktb.nbKey,fname ) ;
+
+    // return T ;
+
+
+
     // HashLeaf * tbHashLeaf= compute_hashCovWeight(nbHashDiff ,rem0,ST1,ST2) ;
 
 
@@ -648,23 +694,21 @@ static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2) {
     fprintf(fout,"# Triplets restants a parcourir : %d\n", nbRemT);
     fflush(fout);
 }
-void check_sum(long nb_leaf,char *name_fp ) {
-    char *done = calloc((size_t)nb_leaf, 1);
+void check_sum(long nb_key,char *name_fp ) {
     unsigned long long total = 0;
     long ndone = 0, missing = 0;
-
+    printf("CHECLSUM nb_key=%d\n", nb_key);
     FILE *fp = fopen(name_fp, "r");
-    long jid; int w; u64 T;
+    long jid;  u64 T;
     if (!fp) {
         fprintf(stderr, "ouverture impossible : %s\n", name_fp);
     }else {
         char line[200] ;
         while (fgets(line,200,fp)) {
             if (line[0] != '#') {
-                if (sscanf(line, "%ld %d %llu", &jid, &w, &T) == 3) {
-                    if (jid >= 0 && jid < nb_leaf && !done[jid]) {
-                        done[jid] = 1; ndone++;
-                        total += (u64)w * T;
+                if (sscanf(line, "%ld %llu", &jid, &T) == 2) {
+                    if (jid >= 0 && jid <= nb_key ) {
+                        total =  T;
                     }
                 }
             }
@@ -672,13 +716,12 @@ void check_sum(long nb_leaf,char *name_fp ) {
     }
     fclose(fp);
 
-    for (long id = 0; id < nb_leaf; id++) if (!done[id]) missing++;
-    printf("jobs termines : %ld / %ld   manquants : %ld\n", ndone, nb_leaf, missing);
+    missing = nb_key -jid  ;
+    printf("jobs termines : %ld / %ld   manquants : %ld\n", jid, nb_key, missing);
     printf("TOTAL (partiel si manquants) = %llu\n", total);
     if (missing == 0)
         printf("Comparaison avec N attendu 125047355835960 : %s\n",
                total == 125047355835960ULL ? "IDENTIQUE" : "DIFFERENT");
-    free(done);
 
 }
 void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
