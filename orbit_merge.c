@@ -148,7 +148,7 @@ void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *
 
 static int gen_group(int lo, int m, int perms[][8]) ;
 static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
-void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2, key_tb ktb) ;
+void compute_jobs( const char *fileName,const typeRemCov *rem0, key_tb ktb) ;
 
 remT_Type * get_remT(remT_Type * remT) {
     static remT_Type * initRemT = NULL ;
@@ -202,7 +202,7 @@ int main(int argc, char **argv){
     // *********  phase 2 **************************
     // developpement des feuilles par developpement recursif sur les paires de bt()
     // suivant ls
-    compute_jobs(fname,rem0,ST1,ST2,ktb) ;
+    compute_jobs(fname,rem0,ktb) ;
     return 0;
 }
 /************ BEGIN ***************** phase 1 pour ST2 et ST1 *****************************/
@@ -501,7 +501,7 @@ u64 develop_keys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLea
     return T ;
 }
 */
-void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2, key_tb ktb)   {
+void compute_jobs( const char *fileName,const typeRemCov *rem0, key_tb ktb)   {
     // long nb_leaf = ST1->nleaf;
     char fname[64];
     t0 = time(NULL);
@@ -531,10 +531,10 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
         }
         fclose(fp);
     }
-    print_info(stdout,ST1,ST2,ktb);
+    //print_info(stdout,ST1,ST2,ktb);
     fp = fopen(fname, "a");
     if (!fp) { perror("res"); return ; }
-    print_info(fp,ST1,ST2,ktb);
+    //print_info(fp,ST1,ST2,ktb);
     printf(" fichier %s, deja faits : %ld\n", fname, begin_jid);
 
     int nh_period = ktb.nbKey / 100 ;
