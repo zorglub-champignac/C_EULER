@@ -124,6 +124,15 @@ typedef struct {
     Perm Pe[NBPERM1] ;
 } Stage;
 
+typedef struct {
+    hashCov key ;
+    u64 weight ;
+} k_element ;
+typedef struct {
+    k_element *tb ;
+    int nbKey ;
+} key_tb ;
+
 static void init_basic(void) ;
 static Stage * build_ST1(void) ;
 static Stage * build_ST2(void) ;
@@ -134,11 +143,11 @@ remT_Type * build_remT(const Stage *ST1,const Stage *ST2) ;
 const typeRemCov *   build_rem0(const remT_Type * remT) ;
 
 void check_sum(long nb_leaf,char *name_fp ) ;
-static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2) ;
+static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2,const key_tb ktb) ;
 void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
 
 static int gen_group(int lo, int m, int perms[][8]) ;
-
+static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
 void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
 
 remT_Type * get_remT(remT_Type * remT) {
@@ -177,8 +186,15 @@ int main(int argc, char **argv){
 
     fprintf(stderr, "[orbites construites en %.1f s]\n", (double)(clock() - c0) / CLOCKS_PER_SEC);
 
-    if (argc >= 2 && strcmp(argv[1], "--info") == 0) { print_info(stdout,ST1,ST2); return 0; }
-    if (argc >= 3 && strcmp(argv[1], "--sum") == 0) { check_sum(ST1->nleaf,argv[2] ) ; return 0; }
+    if (argc >= 2 && strcmp(argv[1], "--info") == 0) {
+        key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
+        print_info(stdout,ST1,ST2,ktb); return 0;
+    }
+    if (argc >= 3 && strcmp(argv[1], "--sum") == 0) {
+        key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
+        check_sum(ktb.nbKey,argv[2] ) ;
+        return 0;
+    }
     if (argc >= 3 && strcmp(argv[1], "--sample") == 0) { int K = atoi(argv[2]); compute_sample(K,rem0,ST1,ST2); return 0; }
     char fname[64];
     if ( argc > 1) { strcpy(fname, argv[1]); } else {
@@ -190,7 +206,7 @@ int main(int argc, char **argv){
     compute_jobs(fname,rem0,ST1,ST2) ;
     return 0;
 }
-/************ BEGIN ***************** phase 1 pour ST2 puis ST1 *****************************/
+/************ BEGIN ***************** phase 1 pour ST2 et ST1 *****************************/
 static void stage_dfs(Stage *S, int j ) ;
 static void stage_leaf(Stage *S) ;
 void stage_phase1(Stage *S) {
@@ -217,7 +233,6 @@ static void stage_dfs(Stage *S, int j )
         return;
     }
     const typeRemCov *pair_choice = tp[S->W[j]] ;
-    // for (typeRemCov c = 0; c < 3; c++) {
     typeRemCov p = pair_choice[0]; // paire
     if (S->cov[p] < 2) {
         S->cov[p]++;  S->curPair[j] = p ;
@@ -292,26 +307,15 @@ static typeRemCov rem_cov[nbPairs] ;
 static u64 run_job(long id,const typeRemCov rem0[nbPairs],const Stage *ST1,const Stage *ST2) ;
 static clock_t jobs_total = 0;
 static clock_t bt_total = 0;
-/*typedef struct {
-   hashCov *hashCov ;
-    int nbHash ;
-} hash_tb ;*/
-typedef struct {
-    hashCov key ;
-    u64 weight ;
-} k_element ;
-typedef struct {
-    k_element *tb ;
-    int nbKey ;
-} key_tb ;
 
+/*
 int cmpHashCov(const void * h1, const void * h2) {
     hashCov diff = *(const hashCov *)h1 - *(const hashCov *)h2 ;
     if (diff > 0) return 1 ;
     else if (diff < 0) return -1 ;
     else return 0 ;
 }
-
+*/
 
 int cmp_k_element (const void * k1, const void * k2) {
     hashCov diff = ((const k_element *)k1)->key - ((const k_element *)k2)->key ;
@@ -326,7 +330,6 @@ void merge_k_element(k_element *k1,const k_element *k2) {
 int compute_key_tb_diff (key_tb * tb_elem) {
     //qsort(tbHashCov,nbHashCov,sizeof(hashCov),cmpHashCov);
     qsort(tb_elem->tb,tb_elem->nbKey,sizeof(k_element),cmp_k_element) ;
-    for (int i =0; i< 15;i++) printf("%lld(%lld) ",tb_elem->tb[i].key,tb_elem->tb[i].weight) ; printf("\n");
     hashCov ant_key = tb_elem->tb[0].key ;
     int nbElemDif = 1 ;
     for (int i=1;i< tb_elem->nbKey ;i++) {
@@ -347,6 +350,7 @@ int compute_key_tb_diff (key_tb * tb_elem) {
 }
 
 static u64 cnt ;
+/*
 int compute_hash_cov_diff (hashCov *tbHashCov, int nbHashCov) {
     qsort(tbHashCov,nbHashCov,sizeof(hashCov),cmpHashCov);
     hashCov antCov = 0 ;
@@ -363,7 +367,7 @@ int compute_hash_cov_diff (hashCov *tbHashCov, int nbHashCov) {
     }
     return nbHashDif ;
 }
-
+*/
 key_tb compact_key(const Stage *ST) {
     key_tb ketb ;
     ketb.tb =  malloc(ST->nleaf*sizeof(ketb.tb[0])); ;
@@ -384,7 +388,7 @@ key_tb compact_key(const Stage *ST) {
     ketb.nbKey = ST->nleaf ;
     ketb.nbKey =  compute_key_tb_diff(&ketb) ;
     ketb.tb = realloc(ketb.tb,ketb.nbKey*sizeof(ketb.tb[0])); ;
-    printf("Size ketb=%d\n",ketb.nbKey) ;
+    // printf("Size ketb=%d\n",ketb.nbKey) ;
     return ketb ;
 }
 
@@ -410,16 +414,16 @@ int keyToCov(hashCov key,typeRemCov *cov) {
 
 time_t t0 ;
 hashCov *  tbHashCov ;
-u64 ComputeKeys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf) ;
+// u64 develop_keys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf) ;
 
-key_tb compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
+static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     t0 = time(NULL);
     const key_tb ketb1 = compact_key(ST1) ;
     const key_tb ketb2 = compact_key(ST2) ;
     key_tb ketb ;
     int64_t nbKeyAlloc = (int64_t)ketb1.nbKey * ketb2.nbKey ;
-    printf("HasCov1 %ld -> %d diff,  HasCov2 %ld -> %d diff Total=%lld MAX=%d\n"
-        ,ST1->nleaf,ketb1.nbKey,ST2->nleaf,ketb2.nbKey,nbKeyAlloc,MAX_HASH_ALLOC) ;
+    printf("Etage 1 %ld->%d ,  Etage 2 %ld->%d  Total=%dx%d=%lld MAX=%d\n"
+        ,ST1->nleaf,ketb1.nbKey,ST2->nleaf,ketb2.nbKey,ketb1.nbKey,ketb2.nbKey,nbKeyAlloc,MAX_HASH_ALLOC) ;
     int overbook = 0 ;
     int indexConflicts = 0 ;
     if ( nbKeyAlloc > MAX_HASH_ALLOC ) {
@@ -435,7 +439,6 @@ key_tb compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)
         for (int i2=0; i2<ketb2.nbKey; i2++) {
             typeRemCov cov[nbPairs] ;
             hashCov hC = ketb1.tb[i1].key + ketb2.tb[i2].key ;
-            // if (keyToCov(hC,cov)) continue ;
             keyToCov(hC,cov) ;
             int ok = 1;
             for (int p=0;p<nbPairs;p++) {
@@ -464,7 +467,7 @@ key_tb compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)
     ketb.nbKey = nbKeyAlloc ;
     compute_key_tb_diff(&ketb) ;
     ketb.tb = realloc(ketb.tb,ketb.nbKey*sizeof(ketb.tb[0])) ;
-    printf("Nouvelle taille %d\n",ketb.nbKey) ;
+    // printf("Nouvelle taille %d\n",ketb.nbKey) ;
     printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),ketb1.nbKey*ketb2.nbKey,ketb.nbKey);
     HashLeaf * tbKeyLeaf = calloc (ketb.nbKey, sizeof(HashLeaf));
     int nbKeyLeaf = 0;
@@ -478,7 +481,8 @@ key_tb compute_hashCov(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)
     fflush(stdout);
     return ketb ;
 }
-u64 ComputeKeys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf) {
+/*
+u64 develop_keys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf) {
     u64 T = 0 ;
     int nh_period = nbKeyDiff / 100 ;
     for (int np=0,nh = 0; nh < nbKeyDiff ; np++, nh++) {
@@ -497,17 +501,17 @@ u64 ComputeKeys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLeaf
     printf("%lds T=%lld \n",(long)(time(NULL) - t0),T);
     return T ;
 }
+*/
 void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)   {
-    long nb_leaf = ST1->nleaf;
+    // long nb_leaf = ST1->nleaf;
     char fname[64];
     t0 = time(NULL);
-    long  nskip = 0;
     if (fileName != NULL) {
         strcpy(fname, fileName);
     } else {
         sprintf(fname, "resv2_%s_%d.txt",CIBLE_NAME,0);
     }
-    key_tb ktb = compute_hashCov(rem0,ST1,ST2);
+    key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
 
     // char *done = (char *)calloc((size_t)ktb.nbKey, 1);
     FILE *fp = fopen(fname, "r");
@@ -515,7 +519,7 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
     u64 Total = 0 ;
     if (fp) {
 
-        long jid; hashCov w; u64 T;
+        long jid;
         char line[200] ;
         while (fgets(line,200,fp)) {
             if (line[0] != '#') {
@@ -528,10 +532,10 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
         }
         fclose(fp);
     }
-    print_info(stdout,ST1,ST2);
+    print_info(stdout,ST1,ST2,ktb);
     fp = fopen(fname, "a");
     if (!fp) { perror("res"); return ; }
-    print_info(fp,ST1,ST2);
+    print_info(fp,ST1,ST2,ktb);
     printf(" fichier %s, deja faits : %ld\n", fname, begin_jid);
 
     int nh_period = ktb.nbKey / 100 ;
@@ -560,9 +564,9 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
         }
     }
     if (nh <= ktb.nbKey) {
-        fprintf(fp, "%lld %llu\n", nh,Total);
-        printf("%lds %lld=> T=%lld \n",(long)(time(NULL) - t0),nh,Total);
-        fprintf(fp,"#[%lds] %ld jobs faits dans cette session %s (dernier id %ld) Total=%lld\n",
+        fprintf(fp, "%d %llu\n", nh,Total);
+        printf("%lds %d=> T=%lld \n",(long)(time(NULL) - t0),nh,Total);
+        fprintf(fp,"#[%lds] %ld jobs faits dans cette session %s (dernier id %ld) Total=%d\n",
            (long)(time(NULL) - t0), ktb.nbKey,CIBLE_NAME,ktb.nbKey,Total);
     }
 
@@ -679,7 +683,7 @@ static void bt(const int k)
 
 /*************************************** routines tritement options de main() **************/
 /* -------------------------------------------------------- main */
-static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2) {
+static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2,const key_tb ktb) {
     long  tw1 = 0, tw2 = 0, full = 0;
     for (long i = 0; i < ST1->nleaf; i++) { tw1 += ST1->leafs[i].weight; if (ST1->leafs[i].weight == ST1->nbPerm) full++; }
     for (long i = 0; i < ST2->nleaf; i++) tw2 += ST2->leafs[i].weight;
@@ -687,16 +691,16 @@ static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2) {
            "(somme poids = %ld, orbites pleines de %d : %ld)\n", ST1->wAssign,ST1->nbT, ST1->nleaf, tw1,ST1->nbPerm, full);
     fprintf(fout,"# Etage 2 : %ld affectations faisables de W2 (%d triplets), %ld orbites sous S2 "
            "(somme poids = %ld)\n", ST2->wAssign,ST2->nbT, ST2->nleaf, tw2);
-    fprintf(fout,"# Nombre de jobs (representants de l'etage 1) = %ld ; sous-comptages par job = %ld\n",
-           ST1->nleaf, ST2->nleaf);
+    fprintf(fout,"# Nombre de developpement (apres le merge) = %ld \n",
+           ktb.nbKey);
     fprintf(fout,"# Gain nominal sur les configurations de depart : %.1f\n",
-           (double)ST1->wAssign * ST2->wAssign / ((double)ST1->nleaf * ST2->nleaf));
+           (double)ST1->wAssign * ST2->wAssign / ((double)ktb.nbKey));
     fprintf(fout,"# Triplets restants a parcourir : %d\n", nbRemT);
     fflush(fout);
 }
 void check_sum(long nb_key,char *name_fp ) {
     unsigned long long total = 0;
-    long ndone = 0, missing = 0;
+    long  missing = 0;
     printf("CHECLSUM nb_key=%d\n", nb_key);
     FILE *fp = fopen(name_fp, "r");
     long jid;  u64 T;
