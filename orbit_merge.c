@@ -148,7 +148,7 @@ void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *
 
 static int gen_group(int lo, int m, int perms[][8]) ;
 static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
-void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
+void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2, key_tb ktb) ;
 
 remT_Type * get_remT(remT_Type * remT) {
     static remT_Type * initRemT = NULL ;
@@ -185,17 +185,16 @@ int main(int argc, char **argv){
     stage_phase1(ST2);  printf("ST2 phase 1 OK\n");
 
     fprintf(stderr, "[orbites construites en %.1f s]\n", (double)(clock() - c0) / CLOCKS_PER_SEC);
-
+    if (argc >= 3 && strcmp(argv[1], "--sample") == 0) { int K = atoi(argv[2]); compute_sample(K,rem0,ST1,ST2); return 0; }
+    key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
     if (argc >= 2 && strcmp(argv[1], "--info") == 0) {
-        key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
         print_info(stdout,ST1,ST2,ktb); return 0;
     }
     if (argc >= 3 && strcmp(argv[1], "--sum") == 0) {
-        key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
+    //    key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
         check_sum(ktb.nbKey,argv[2] ) ;
         return 0;
     }
-    if (argc >= 3 && strcmp(argv[1], "--sample") == 0) { int K = atoi(argv[2]); compute_sample(K,rem0,ST1,ST2); return 0; }
     char fname[64];
     if ( argc > 1) { strcpy(fname, argv[1]); } else {
         sprintf(fname, "resv2_%s_%d.txt",CIBLE_NAME, 0);
@@ -203,7 +202,7 @@ int main(int argc, char **argv){
     // *********  phase 2 **************************
     // developpement des feuilles par developpement recursif sur les paires de bt()
     // suivant ls
-    compute_jobs(fname,rem0,ST1,ST2) ;
+    compute_jobs(fname,rem0,ST1,ST2,ktb) ;
     return 0;
 }
 /************ BEGIN ***************** phase 1 pour ST2 et ST1 *****************************/
@@ -502,7 +501,7 @@ u64 develop_keys (const typeRemCov *rem0,int nbKeyDiff,const HashLeaf * tbKeyLea
     return T ;
 }
 */
-void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2)   {
+void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2, key_tb ktb)   {
     // long nb_leaf = ST1->nleaf;
     char fname[64];
     t0 = time(NULL);
@@ -511,7 +510,7 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,const Stage *ST1,
     } else {
         sprintf(fname, "resv2_%s_%d.txt",CIBLE_NAME,0);
     }
-    key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
+    //key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
 
     // char *done = (char *)calloc((size_t)ktb.nbKey, 1);
     FILE *fp = fopen(fname, "r");
