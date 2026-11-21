@@ -28,7 +28,7 @@
  * Directives d'inclusion
  * ----------------------
  */
-#include "xos.h"
+#include <stdint.h>
 
 /* ------------------------------------
  * Declaration des Constantes exportees
@@ -111,6 +111,11 @@ DHEAP_DATA *  DHEAP_AllocU(
  int  HEAP_Insert(
 	HEAP_DATA	*pUneHeap,		/* La pile				*/
 	const void	*pUnElement);   /* L'element a inserer	*/
+
+// n'insere pas l'element si celui-ci est deja present
+int  HEAP_Insert_Unique(
+   HEAP_DATA	*pUneHeap,		/* La pile				*/
+   const void	*pUnElement);   /* L'element a inserer	*/
 
  void *  DHEAP_Insert(
 	DHEAP_DATA	*pUneDHeap,
