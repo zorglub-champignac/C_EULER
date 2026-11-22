@@ -136,7 +136,7 @@ int main(int argc, char **argv){
     }
     char fname[64];
     if ( argc > 1) { strcpy(fname, argv[1]); } else {
-        sprintf(fname, "resv2_%s_%d.txt",CIBLE_NAME, 0);
+        sprintf(fname, "C%d_S%dxS%d_tri%dX%d.txt",CIBLE,PERM1,G_PERM2,MAXT,SIZE_W2);
     }
     // *********  phase 2 **************************
     // developpement des feuilles par developpement recursif sur les paires de bt()
@@ -252,9 +252,15 @@ void merge_k_element(k_element *k1,const k_element *k2) {
 
 int compute_key_tb_diff (key_tb * tb_elem) {
     qsort(tb_elem->tb,tb_elem->nbKey,sizeof(k_element),cmp_k_element) ;
-    hashCov ant_key = tb_elem->tb[0].key ;
+    // hashCov ant_key = tb_elem->tb[0].key ;
+    int nbZero =0 ;
+    for (nbZero=0;nbZero<tb_elem->nbKey;nbZero++) {
+        if (tb_elem->tb[nbZero].key) break ;
+    }
     int nbElemDif = 1 ;
-    for (int i=1;i< tb_elem->nbKey ;i++) {
+    hashCov ant_key = tb_elem->tb[nbZero].key ;
+    tb_elem->tb[0] = tb_elem->tb[nbZero] ;
+    for (int i=nbZero+1;i< tb_elem->nbKey ;i++) {
         if ( tb_elem->tb[i].key != ant_key)  {
             if (nbElemDif != i) {
                tb_elem->tb[nbElemDif++] = tb_elem->tb[i] ;
@@ -274,7 +280,7 @@ int compute_key_tb_diff (key_tb * tb_elem) {
 static u64 cnt ;
 key_tb compact_key(const Stage *ST);
 
-
+/*
 hashCov covToKey(const typeRemCov *cov_) {
     hashCov hC = 0 ;
     for (int i=0;i<nbPairs;i++) {hC += pow3[i] * cov_[i] ;}
@@ -292,7 +298,19 @@ int keyToCov(hashCov key,typeRemCov *cov_) {
     }
     return (key ? 1:0) ; // doit etre null
 }
-
+*/
+hashCov covToKey(const typeRemCov *cov_) {
+    hashCov hC = 0 ;
+    for (int i=0;i<nbPairs;i++) {hC +=  ((u64)cov_[i] & 3) << (2*i) ;}
+    return hC ;
+}
+void keyToCov(hashCov key,typeRemCov *cov_) {
+    memset(cov_,0,nbPairs);
+    for (int i=0;i<nbPairs;i++) {
+        cov_[i] = (((u64)key) >> (2*i)) & 3 ;
+    }
+//    return (key ? 1:0) ; // doit etre null
+}
 
 time_t t0 ;
 static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
@@ -336,9 +354,12 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
                             ,MAX_CONFLITS,i1,ST1->nleaf) ;
                         exit(5);
                     }
-                } else {
-                    if  (all_key.ketb.tb[index].key !=hC  && all_key.ketb.tb[index].key != 0 ) nb_conflits++ ;
                 }
+                // else {
+                //    if  (all_key.ketb.tb[index].key !=hC  && all_key.ketb.tb[index].key != 0 ) {
+                 //       nb_conflits++ ;
+                 //   }
+                // }
             }
             all_key.ketb.tb[index].key = hC ;
             all_key.ketb.tb[index].weight += ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
@@ -371,9 +392,12 @@ key_tb compact_key(const Stage *ST) {
             cov1[r->pairs[i]]++ ;
         }
         hashCov hC = 0 ;
+        hC = covToKey(cov1);
+        /*
         for (int p = 0; p < nbPairs; p++) {
             hC += pow3[p] * cov1[p] ;
         }
+        */
         ketb.tb[id].key= hC ;
         ketb.tb[id].weight= r->weight ;
     }

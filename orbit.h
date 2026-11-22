@@ -20,13 +20,13 @@ typedef int64_t hashCov ;
 
 /************************* structures **********************************/
 typedef struct {
-    typeRemCov pairs[MAXT] ;
-    int16_t weight;
+    typeRemCov pairs[MAXT] ;        // paire choisie pour chaque triplet (MAXT pour ST1, SIZE_W1 pour ST2)
+    int16_t weight;                 //ponderation
 } Leaf;
 
 typedef struct {
-    typeRemCov cov[nbPairs];
-    int64_t weight ;
+    typeRemCov cov[nbPairs];        // pour chaque paire (28) nombre de choix (0,1,2)
+    int64_t weight ;        //ponderation
 } HashLeaf;
 
 typedef struct {
