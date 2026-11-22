@@ -63,18 +63,13 @@
 #include <string.h>
 #include <time.h>
 
-typedef unsigned long long u64;
-
-typedef int8_t typeRemCov ;
-#define nbPairs 28
-#define nbTriplets 56
 
 #define CIBLE 20
 #include "cible.h"
 
-// 0x2000000=33 554 432
-#define MAX_HASH_ALLOC 0x2000000
-#define MAX_CONFLITS 60000000
+#include "orbit.h"
+
+
 
 /* ---------------------------------------------------------------- base */
 static typeRemCov pidx[8][8]; // tableau des index[0,28[ des paires ((i,j) et (j,i) => index )
@@ -85,9 +80,6 @@ static typeRemCov tp[nbTriplets][3]; // liste des index de paires associées au 
 /* ------------------------------------------------ backtracking */
 
 
-typedef typeRemCov remT_Type[nbRemT][3];
-
-typedef int64_t hashCov ;
 
 static const hashCov pow3[nbPairs] = {
     1 ,3 ,9 ,27 ,81 ,243 ,729 ,2187 ,6561 ,19683 ,59049 ,177147 ,531441 ,1594323
@@ -95,68 +87,7 @@ static const hashCov pow3[nbPairs] = {
     ,10460353203 ,31381059609 ,94143178827 ,282429536481 ,847288609443 ,2541865828329 ,7625597484987
 } ;
 
-/************************* structures **********************************/
-typedef struct {
-    typeRemCov pairs[MAXT] ;
-    int16_t weight;
-} Leaf;
 
-typedef struct {
-    typeRemCov cov[nbPairs];
-    int64_t weight ;
-} HashLeaf;
-
-typedef struct {
-    typeRemCov recip_tri[MAXT] ;
-    typeRemCov direct_pair[nbPairs]  ;
-}Perm;
-typedef struct {
-    typeRemCov nbT;
-    int nbPerm;                          // nbT : nombre de triplets, nbPerm : nombre de permutations.
-    const typeRemCov *W;                       // liste des triplets (invariant)
-    typeRemCov cov[nbPairs];                        // couverture des paires
-    typeRemCov curPair[MAXT];
-    Leaf *leafs; long nleaf, cap;
-    long wAssign;                       // poids total du developpement
-    int killer;
-    Perm Pe[NBPERM1] ;
-} Stage;
-
-typedef struct {
-    hashCov key ;
-    u64 weight ;
-} k_element ;
-typedef struct {
-    k_element *tb ;
-    int nbKey ;
-} key_tb ;
-typedef struct {
-    const Stage *ST1 ;
-    key_tb ktb1 ;
-    const Stage *ST2 ;
-    key_tb ktb2 ;
-    key_tb ketb ;
-} all_key_tb ;
-
-
-
-static void init_basic(void) ;
-static Stage * build_ST1(void) ;
-static Stage * build_ST2(void) ;
-static Stage *stage_build(Stage * S,int perms[][8]) ;
-void stage_phase1(Stage *S) ;
-//void build_remT(const Stage *ST1,const Stage *ST2) ;
-remT_Type * build_remT(const Stage *ST1,const Stage *ST2) ;
-const typeRemCov *   build_rem0(const remT_Type * remT) ;
-
-void check_sum(long nb_key,char *name_fp ) ;
-static void print_info(FILE * fout,all_key_tb all_tb) ;
-// static void print_info_ktb(FILE * fout,u64 wAssign,key_tb ktb) ;
-void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
-
-static int gen_group(int lo, int m, int perms[][8]) ;
-static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
-void compute_jobs( const char *fileName,const typeRemCov *rem0const,all_key_tb all_tb) ;
 
 remT_Type * get_remT(remT_Type * remT) {
     static remT_Type * initRemT = NULL ;
@@ -214,8 +145,6 @@ int main(int argc, char **argv){
     return 0;
 }
 /************ BEGIN ***************** phase 1 pour ST2 et ST1 *****************************/
-static void stage_dfs(Stage *S, int j ) ;
-static void stage_leaf(Stage *S) ;
 void stage_phase1(Stage *S) {
     stage_dfs(S, 0);
     {
@@ -366,7 +295,6 @@ int keyToCov(hashCov key,typeRemCov *cov_) {
 
 
 time_t t0 ;
-//hashCov *  tbHashCov ;
 static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     t0 = time(NULL);
     const key_tb ketb1 = compact_key(ST1) ;
@@ -376,10 +304,7 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
     all_key.ST2 = ST2 ;
     all_key.ktb1 = ketb1 ;
     all_key.ktb2 = ketb2 ;
-    // key_tb ketb ;
     int64_t nbKeyAlloc = (int64_t)ketb1.nbKey * ketb2.nbKey ;
-//    printf("Etage 1 %ld->%d ,  Etage 2 %ld->%d  Total=%dx%d=%lld MAX=%d\n"
-//        ,ST1->nleaf,ketb1.nbKey,ST2->nleaf,ketb2.nbKey,ketb1.nbKey,ketb2.nbKey,nbKeyAlloc,MAX_HASH_ALLOC) ;
     int overbook = 0 ;
     int indexConflicts = 0 ;
     if ( nbKeyAlloc > MAX_HASH_ALLOC ) {
@@ -559,19 +484,6 @@ static void bt(const int k)
 /***** END ************************* phase 2 (jobs) *****************************/
 
 /*************************************** routines tritement options de main() **************/
-/* -------------------------------------------------------- main */
-/*static void print_info_ST(FILE * fout,const Stage *ST1,const Stage *ST2) {
-    long  tw1 = 0, tw2 = 0, full = 0;
-    for (long i = 0; i < ST1->nleaf; i++) { tw1 += ST1->leafs[i].weight; if (ST1->leafs[i].weight == ST1->nbPerm) full++; }
-    for (long i = 0; i < ST2->nleaf; i++) tw2 += ST2->leafs[i].weight;
-    fprintf(fout,"# Etage 1 : %ld affectations faisables de W1 (%d triplets), %ld orbites sous S6 "
-           "(somme poids = %ld, orbites pleines de %d : %ld)\n", ST1->wAssign,ST1->nbT, ST1->nleaf, tw1,ST1->nbPerm, full);
-    fprintf(fout,"# Etage 2 : %ld affectations faisables de W2 (%d triplets), %ld orbites sous S2 "
-           "(somme poids = %ld)\n", ST2->wAssign,ST2->nbT, ST2->nleaf, tw2);
-    fprintf(fout,"# Triplets restants a parcourir : %d\n", nbRemT);
-    fflush(fout);
-}
-*/
 
 static void print_info(FILE * fout,all_key_tb all_tb) {
     long  tw1 = 0, tw2 = 0, full = 0;
@@ -693,8 +605,6 @@ static Stage *stage_build(Stage * S,int perms[][8]) {
     }
     return S;
 }
-
-// const remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
 remT_Type * build_remT(const Stage *ST1,const Stage *ST2) {
     remT_Type * remT = calloc(1, sizeof(remT_Type));
     int used[nbTriplets] = {0};

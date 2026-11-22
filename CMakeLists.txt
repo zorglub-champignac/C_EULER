@@ -25,4 +25,4 @@ add_executable(orbit_count6 orbit_count6.c)
 add_executable(orbit_count6_v2 orbit_count6_v2.c)
 add_executable(orbit_general orbit_general.c
         cible.h)
-add_executable(orbit_merge orbit_merge.c cible.h)
+add_executable(orbit_merge orbit_merge.c cible.h orbit.h)
