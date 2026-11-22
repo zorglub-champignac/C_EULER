@@ -13,47 +13,45 @@
  *     - 2 permutations de {6,7}
  *     - les triplets sont donnés par la macro LISTE_W2
  *        - doit respecter chaque triplet doit contenir un 6 ou un 7 ou les deux (hors de W1
- *        - doit etre stable par la permutation 6<->7
+ *        - doit etre stable par la permutation 6<->7)
  *   - pour les 2 levels on precalcule pour chaque permutation :
  *        - recip_tri[num Triplet] : la fonction reciproque sur les triplets
  *           recip[tidx[perm(a)][perm(b)][perm(c)] = tidx[a][b][c]
- *            Cela marche pour ST2 car les triplets de la liste W2 doivent etre stable par le groupe des permutations
+ *            Cela est possible pour ST2 car les triplets de la liste W2 doivent etre stable par le groupe des permutations
+ *            (en fait groupe de taille 2 : Identite+6<->7
  *         - direct_pair[num Pair] :
  *           direct_pair[pidx[a][b]] = pidx[perm(a)][perm(b)]
  *         Exemple pour ST1 et la permutation (0->1->2->4->0).
  *             Le triplet (0,1,2) devient (1,2,4)
  *             - (0,1,2) (n° 0) devient (1,2,4) (n° 22) : donc recip[22] = 0
- *
- *
- *
- * Meme methode que orbit_count.c, avec des groupes plus gros :
- *
- * Etage 1 : W1 = les 20 triplets de {0,...,5,6}, groupe G1 = S6 (720 perms,
+ *          Meme methode que orbit_count.c, avec des groupes plus gros :
+ *            Etage 1 : W1 = les 20 triplets de {0,...,5}, groupe G1 = S6 (720 perms,
  *           6 et 7 fixes).
- * Etage 2 : W2 = les 15 triplets contenant un 6, un 7 où les deux.
- *           G2 fixe point par point toute affectation de W1.
- *
- *   N = somme sur les representants r1 (orbites de G1 sur les affectations
- *       faisables de W1) de  |O1| *
- *       somme sur les representants r2 (orbites de G2 sur les affectations
- *       faisables de W2) de  |O2| * count(r1, r2)
- *
- * Facteur nominal 720 * 15 = 10800. Le comptage est exact (orbites courtes
- * ponderees par leur vraie taille).
- *
- * Canonicalisation : le representant d'une orbite est l'affectation
- * lexicographiquement minimale (chiffres 0,1,2 dans l'ordre des triplets de W).
- * Le test est paresseux : comparaison chiffre par chiffre avec sortie
- * anticipee, et la derniere permutation "tueuse" est essayee en premier.
+ *            Etage 2 : W2 = les 15 triplets contenant un 6, un 7 où les deux.
+ *                G2 fixe point par point toute affectation de W1.
+ *            N = somme sur les representants r1 (orbites de G1 sur les affectations
+ *                  faisables de W1) de  |O1| *
+ *                somme sur les representants r2 (orbites de G2 sur les affectations
+ *                  faisables de W2) de  |O2| * count(r1, r2)
+ *            Facteur nominal 720 * 2 = 1440. Le comptage est exact (orbites courtes
+ *                  ponderees par leur vraie taille).
+ *             Canonicalisation : le representant d'une orbite est l'affectation
+ *                lexicographiquement minimale (chiffres 0,1,2 dans l'ordre des triplets de W).
+ *                Le test est paresseux : comparaison chiffre par chiffre avec sortie
+ *                  anticipee, et la derniere permutation "tueuse" est essayee en premier.
+ *    - regroupement des développements.
+*          L'astuce reside dans le fait que le calcul par lie au developpement d'une orbite juesqu'à la fin
+*          depend seulement des paires consommées cov[i], i dans[0 28[ durant la phase de développement par triplets.
+*          On peut donc économiser des developpements conduisant au meme valeurs de cov[i] en simplement ajoutant les poids.
+*          Cette phase de regroupement est effectue par compute_merge_dev().
+*          A noter que l'on peut suivant le meme procédé regrouper auparavant les developpements de ST1 et les developpements de ST2.
+*          Pour effectuer ces regroupements on utilise une clé calculée sur cov[i], i[0,28[
+*          en remarquant que cov[i] peut prendre les valeurs 0,1,2 . Base 3 sur 28 valeurs 3**28 < 2**64 donc la clé tient sur u64.
  *
  * UTILISATION
- *   gcc -O3 -march=native -o orbit_count6 orbit_count6.c
- *   ./orbit_count6 --info                  structure (construit les orbites)
- *   ./orbit_count6 --sample K              estime le temps total et N avec K jobs
- *   ./orbit_count6                         tous les jobs (fichier res6v2_0.txt)
- *   ./orbit_count6 PART NPARTS             jobs d'id % NPARTS == PART
- *                                          (fichier res6v2_PART.txt), reprise auto
- *   ./orbit_count6_v2 --sum res6v2_0.txt ...    total et jobs manquants
+ *   ./orbit_general --info           structure (construit les orbites)
+ *   ./orbit_general                         tous les jobs (fichier res6v2_0.txt)
+ *   ./orbit_general --sum res6v2_0.txt ... total et jobs manquants
  *
  * Un job = un representant r1 de l'etage 1 ; il boucle sur les representants
  * de l'etage 2 et ecrit une ligne "id poids1 T" avec T = somme poids2*count.
@@ -132,6 +130,15 @@ typedef struct {
     k_element *tb ;
     int nbKey ;
 } key_tb ;
+typedef struct {
+    const Stage *ST1 ;
+    key_tb ktb1 ;
+    const Stage *ST2 ;
+    key_tb ktb2 ;
+    key_tb ketb ;
+} all_key_tb ;
+
+
 
 static void init_basic(void) ;
 static Stage * build_ST1(void) ;
@@ -143,13 +150,13 @@ remT_Type * build_remT(const Stage *ST1,const Stage *ST2) ;
 const typeRemCov *   build_rem0(const remT_Type * remT) ;
 
 void check_sum(long nb_key,char *name_fp ) ;
-static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2,key_tb ktb) ;
-static void print_info_ktb(FILE * fout,u64 wAssign,key_tb ktb) ;
+static void print_info(FILE * fout,all_key_tb all_tb) ;
+// static void print_info_ktb(FILE * fout,u64 wAssign,key_tb ktb) ;
 void compute_sample( int K,const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
 
 static int gen_group(int lo, int m, int perms[][8]) ;
-static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
-void compute_jobs( const char *fileName,const typeRemCov *rem0,u64 wAssign, key_tb ktb) ;
+static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) ;
+void compute_jobs( const char *fileName,const typeRemCov *rem0const,all_key_tb all_tb) ;
 
 remT_Type * get_remT(remT_Type * remT) {
     static remT_Type * initRemT = NULL ;
@@ -187,13 +194,13 @@ int main(int argc, char **argv){
 
     fprintf(stderr, "[orbites construites en %.1f s]\n", (double)(clock() - c0) / CLOCKS_PER_SEC);
  //   if (argc >= 3 && strcmp(argv[1], "--sample") == 0) { int K = atoi(argv[2]); compute_sample(K,rem0,ST1,ST2); return 0; }
-    key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
+    all_key_tb all_tb = compute_merge_dev(rem0,ST1,ST2);
     if (argc >= 2 && strcmp(argv[1], "--info") == 0) {
-        print_info(stdout,ST1,ST2,ktb); return 0;
+        print_info(stdout,all_tb); return 0;
     }
     if (argc >= 3 && strcmp(argv[1], "--sum") == 0) {
     //    key_tb ktb = compute_merge_dev(rem0,ST1,ST2);
-        check_sum(ktb.nbKey,argv[2] ) ;
+        check_sum(all_tb.ketb.nbKey,argv[2] ) ;
         return 0;
     }
     char fname[64];
@@ -203,7 +210,7 @@ int main(int argc, char **argv){
     // *********  phase 2 **************************
     // developpement des feuilles par developpement recursif sur les paires de bt()
     // suivant ls
-    compute_jobs(fname,rem0,((u64) ST1->wAssign)*ST2->wAssign,ktb) ;
+    compute_jobs(fname,rem0,all_tb) ;
     return 0;
 }
 /************ BEGIN ***************** phase 1 pour ST2 et ST1 *****************************/
@@ -360,14 +367,19 @@ int keyToCov(hashCov key,typeRemCov *cov_) {
 
 time_t t0 ;
 //hashCov *  tbHashCov ;
-static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
+static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const Stage *ST2) {
     t0 = time(NULL);
     const key_tb ketb1 = compact_key(ST1) ;
     const key_tb ketb2 = compact_key(ST2) ;
-    key_tb ketb ;
+    all_key_tb all_key ;
+    all_key.ST1 = ST1 ;
+    all_key.ST2 = ST2 ;
+    all_key.ktb1 = ketb1 ;
+    all_key.ktb2 = ketb2 ;
+    // key_tb ketb ;
     int64_t nbKeyAlloc = (int64_t)ketb1.nbKey * ketb2.nbKey ;
-    printf("Etage 1 %ld->%d ,  Etage 2 %ld->%d  Total=%dx%d=%lld MAX=%d\n"
-        ,ST1->nleaf,ketb1.nbKey,ST2->nleaf,ketb2.nbKey,ketb1.nbKey,ketb2.nbKey,nbKeyAlloc,MAX_HASH_ALLOC) ;
+//    printf("Etage 1 %ld->%d ,  Etage 2 %ld->%d  Total=%dx%d=%lld MAX=%d\n"
+//        ,ST1->nleaf,ketb1.nbKey,ST2->nleaf,ketb2.nbKey,ketb1.nbKey,ketb2.nbKey,nbKeyAlloc,MAX_HASH_ALLOC) ;
     int overbook = 0 ;
     int indexConflicts = 0 ;
     if ( nbKeyAlloc > MAX_HASH_ALLOC ) {
@@ -376,7 +388,7 @@ static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const St
         overbook = 1 ;
         nbKeyAlloc +=  MAX_CONFLITS ; // rajout de la zone pour gerer les conflits
     }
-    ketb.tb = calloc(nbKeyAlloc,sizeof(ketb.tb[0]));
+    all_key.ketb.tb = calloc(nbKeyAlloc,sizeof(all_key.ketb.tb[0]));
     int nb_conflits = 0 ;
     for (int i1=0; i1<ketb1.nbKey; i1++) {
         for (int i2=0; i2<ketb2.nbKey; i2++) {
@@ -392,7 +404,7 @@ static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const St
             int index = i1*ketb2.nbKey+i2 ;
             if (overbook ) {
                 index &= MAX_HASH_ALLOC-1 ;
-                if  (ketb.tb[index].key !=hC &&  ketb.tb[index].key != 0) {
+                if  (all_key.ketb.tb[index].key !=hC &&  all_key.ketb.tb[index].key != 0) {
                     index = indexConflicts + nb_conflits++ ;
                     if (nb_conflits >= MAX_CONFLITS) {
                         fprintf(stderr,"Limite de %d conflits atteinte. %d/%ld id faits \n "
@@ -400,27 +412,27 @@ static key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,const St
                         exit(5);
                     }
                 } else {
-                    if  (ketb.tb[index].key !=hC  && ketb.tb[index].key != 0 ) nb_conflits++ ;
+                    if  (all_key.ketb.tb[index].key !=hC  && all_key.ketb.tb[index].key != 0 ) nb_conflits++ ;
                 }
             }
-            ketb.tb[index].key = hC ;
-            ketb.tb[index].weight += ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
+            all_key.ketb.tb[index].key = hC ;
+            all_key.ketb.tb[index].weight += ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
         }
     }
-    ketb.nbKey = nbKeyAlloc ;
-    compute_key_tb_diff(&ketb) ;
-    ketb.tb = realloc(ketb.tb,ketb.nbKey*sizeof(ketb.tb[0])) ;
-    printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),ketb1.nbKey*ketb2.nbKey,ketb.nbKey);
-    HashLeaf * tbKeyLeaf = calloc (ketb.nbKey, sizeof(HashLeaf));
+    all_key.ketb.nbKey = nbKeyAlloc ;
+    compute_key_tb_diff(&all_key.ketb) ;
+    all_key.ketb.tb = realloc(all_key.ketb.tb,all_key.ketb.nbKey*sizeof(all_key.ketb.tb[0])) ;
+    printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),ketb1.nbKey*ketb2.nbKey,all_key.ketb.nbKey);
+    HashLeaf * tbKeyLeaf = calloc (all_key.ketb.nbKey, sizeof(HashLeaf));
     int nbKeyLeaf = 0;
-    for (int id=0;id<ketb.nbKey;id++) {
-        if (ketb.tb[id].key== 0 ) continue;
-        keyToCov(ketb.tb[id].key,tbKeyLeaf[nbKeyLeaf].cov);
-        tbKeyLeaf[nbKeyLeaf].weight = ketb.tb[id].weight;
+    for (int id=0;id<all_key.ketb.nbKey;id++) {
+        if (all_key.ketb.tb[id].key== 0 ) continue;
+        keyToCov(all_key.ketb.tb[id].key,tbKeyLeaf[nbKeyLeaf].cov);
+        tbKeyLeaf[nbKeyLeaf].weight = all_key.ketb.tb[id].weight;
         nbKeyLeaf++ ;
     }
     fflush(stdout);
-    return ketb ;
+    return all_key ;
 }
 
 key_tb compact_key(const Stage *ST) {
@@ -447,7 +459,7 @@ key_tb compact_key(const Stage *ST) {
     return ketb ;
 }
 
-void compute_jobs( const char *fileName,const typeRemCov *rem0,u64 wAssign, key_tb ktb)   {
+void compute_jobs( const char *fileName,const typeRemCov *rem0,all_key_tb all_tb)   {
     // long nb_leaf = ST1->nleaf;
     char fname[64];
     // t0 = time(NULL);
@@ -460,13 +472,12 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,u64 wAssign, key_
     int begin_jid = 0 ;
     u64 Total = 0 ;
     if (fp) {
-
         long jid;
         char line[200] ;
         while (fgets(line,200,fp)) {
             if (line[0] != '#') {
                 if (sscanf(line, "%ld %llu", &jid, &Total) == 2) {
-                    if (jid >= begin_jid  && jid <= ktb.nbKey) {
+                    if (jid >= begin_jid  && jid <= all_tb.ketb.nbKey) {
                         begin_jid = jid ;
                     }
                 }
@@ -474,13 +485,13 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,u64 wAssign, key_
         }
         fclose(fp);
     }
-    print_info_ktb(stdout,wAssign,ktb);
+    print_info(stdout,all_tb);
     fp = fopen(fname, "a");
     if (!fp) { perror("res"); return ; }
-    print_info_ktb(fp,wAssign,ktb);
+    print_info(fp,all_tb);
     printf(" fichier %s, deja faits : %d\n", fname, begin_jid);
 
-    int nh_period = ktb.nbKey / 100 ;
+    int nh_period = all_tb.ketb.nbKey / 100 ;
     nh_period -= (nh_period % 10000) ;
     int nh= 0 ;
     int np = 0 ;
@@ -488,8 +499,8 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,u64 wAssign, key_
         nh = begin_jid+1 ;
         np=1 ;
     }
-    for (; nh < ktb.nbKey ; np++, nh++) {
-        hashCov key = ktb.tb[nh].key ;
+    for (; nh < all_tb.ketb.nbKey ; np++, nh++) {
+        hashCov key = all_tb.ketb.tb[nh].key ;
         keyToCov(key,cov);
         // memcpy(cov,ktb.tb[nh]., sizeof(cov));
         for (typeRemCov p =0; p< nbPairs;  p++) {
@@ -498,22 +509,22 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,u64 wAssign, key_
         cnt = 0;
         bt(0);
         u64 T =  cnt ;
-        Total +=  ktb.tb[nh].weight * T;
+        Total +=  all_tb.ketb.tb[nh].weight * T;
         if (np == nh_period ) {
             printf("%lds %d->%lld\n",(long)(time(NULL) - t0),nh,Total); fflush(stdout);
             fprintf(fp, "%d %llu\n", nh,Total);
             np = 0 ;
         }
     }
-    if (nh <= ktb.nbKey) {
+    if (nh <= all_tb.ketb.nbKey) {
         fprintf(fp, "%d %llu\n", nh,Total);
         printf("%lds %d=> T=%lld \n",(long)(time(NULL) - t0),nh,Total);
         fprintf(fp,"#[%lds] %d jobs faits dans cette session %s (dernier id %d) Total=%lld\n",
-           (long)(time(NULL) - t0), ktb.nbKey,CIBLE_NAME,ktb.nbKey,Total);
+           (long)(time(NULL) - t0), all_tb.ketb.nbKey,CIBLE_NAME,all_tb.ketb.nbKey,Total);
     }
 
     fclose(fp);
-    check_sum(ktb.nbKey,fname ) ;
+    check_sum(all_tb.ketb.nbKey,fname ) ;
 }
 
 // recursif, developpe les triplets complementaires (nbRemT) en phase 2 apres ceux developpes par les permutations
@@ -549,29 +560,42 @@ static void bt(const int k)
 
 /*************************************** routines tritement options de main() **************/
 /* -------------------------------------------------------- main */
-static void print_info_ST(FILE * fout,const Stage *ST1,const Stage *ST2) {
+/*static void print_info_ST(FILE * fout,const Stage *ST1,const Stage *ST2) {
     long  tw1 = 0, tw2 = 0, full = 0;
     for (long i = 0; i < ST1->nleaf; i++) { tw1 += ST1->leafs[i].weight; if (ST1->leafs[i].weight == ST1->nbPerm) full++; }
     for (long i = 0; i < ST2->nleaf; i++) tw2 += ST2->leafs[i].weight;
-    fprintf(fout,"# Etage 1 : %ld affectations faisables de W1 (%d triplets), %ld orbites sous S5 "
+    fprintf(fout,"# Etage 1 : %ld affectations faisables de W1 (%d triplets), %ld orbites sous S6 "
            "(somme poids = %ld, orbites pleines de %d : %ld)\n", ST1->wAssign,ST1->nbT, ST1->nleaf, tw1,ST1->nbPerm, full);
     fprintf(fout,"# Etage 2 : %ld affectations faisables de W2 (%d triplets), %ld orbites sous S2 "
            "(somme poids = %ld)\n", ST2->wAssign,ST2->nbT, ST2->nleaf, tw2);
     fprintf(fout,"# Triplets restants a parcourir : %d\n", nbRemT);
     fflush(fout);
 }
+*/
 
-static void print_info_ktb(FILE * fout,u64 wAssign,const key_tb ktb) {
+static void print_info(FILE * fout,all_key_tb all_tb) {
+    long  tw1 = 0, tw2 = 0, full = 0;
+    for (long i = 0; i < all_tb.ST1->nleaf; i++) {
+        tw1 += all_tb.ST1->leafs[i].weight;
+        if (all_tb.ST1->leafs[i].weight == all_tb.ST1->nbPerm) full++;
+    }
+    for (long i = 0; i < all_tb.ST2->nleaf; i++) tw2 += all_tb.ST2->leafs[i].weight;
+    fprintf(fout,"# Etage 1 : %ld affectations faisables de W1 (%d triplets), %ld orbites sous S6 "
+           "(somme poids = %ld, orbites pleines de %d : %ld)\n"
+           , all_tb.ST1->wAssign,all_tb.ST1->nbT, all_tb.ST1->nleaf, tw1,all_tb.ST1->nbPerm, full);
+    fprintf(fout,"# Etage 2 : %ld affectations faisables de W2 (%d triplets), %ld orbites sous S2 "
+           "(somme poids = %ld)\n", all_tb.ST2->wAssign,all_tb.ST2->nbT, all_tb.ST2->nleaf, tw2);
+    fprintf(fout,"# Triplets restants a parcourir : %d\n", nbRemT);
+    fprintf(fout,"# Etage 1 %ld->%d ,  Etage 2 %ld->%d  Total=%dx%d=%lld MAX=%d\n"
+            ,all_tb.ST1->nleaf,all_tb.ktb1.nbKey,all_tb.ST2->nleaf,all_tb.ktb2.nbKey
+            ,all_tb.ktb1.nbKey,all_tb.ktb2.nbKey,(int64_t)all_tb.ktb1.nbKey * all_tb.ktb2.nbKey,MAX_HASH_ALLOC) ;
+
     fprintf(fout,"# Nombre de developpement (apres le merge) = %ld \n",
-           ktb.nbKey);
-    fprintf(fout,"# Gain nominal sur les %lld configurations de depart : %.1f\n",
-           wAssign,(double)wAssign / ((double)ktb.nbKey));
-    fflush(fout);
-}
+       all_tb.ketb.nbKey);
+    double wAssign = ((double)all_tb.ST1->wAssign)*all_tb.ST2->wAssign ;
+    fprintf(fout,"# Gain nominal sur les %.0f configurations de depart : %.1f\n",
+           wAssign,(double)wAssign / ((double)all_tb.ketb.nbKey));
 
-static void print_info(FILE * fout,const Stage *ST1,const Stage *ST2,const key_tb ktb) {
-    print_info_ST(fout,ST1,ST2);
-    print_info_ktb(fout,((u64)ST1->wAssign)*ST2->wAssign,ktb);
     fflush(fout);
 }
 
