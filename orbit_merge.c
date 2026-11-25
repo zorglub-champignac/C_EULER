@@ -463,21 +463,10 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,all_key_tb all_tb
         for (typeRemCov p =0; p< nbPairs;  p++) {
             rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
         }
-        // has_key = 0 ;
         cnt = 0;
-        // cnt_cache = 0 ;
 
         bt(0);
-        u64 T ;
-        /*if (hash_key) {
-            T = cnt+tbHashElement[hash_key].cnt ;
-        } else */
-        {
-         //   T = cnt+cnt_cache ;
-            T = cnt /* +cnt_cache */ ;
-         //if (nh < 30) printf("%d->%lld \n",nh,cnt);
-         // else exit(8) ;
-        }
+        u64 T = cnt ;
 
         Total +=  all_tb.ketb.tb[nh].weight * T;
         if (np == nh_period ) {
@@ -559,7 +548,6 @@ void bt_memo(int k,int hash_key) {
         hash_key = hashKey(key) ;
         if (tbHashElement[hash_key].key == key) {
             cnt += tbHashElement[hash_key].cnt ;
-            // printf(" R(%d)+%lld->%lld ",hash_key,tbHashElement[hash_key].cnt,cnt) ;
             return ;
         } else {
             tbHashElement[hash_key].key = key ;
@@ -567,11 +555,8 @@ void bt_memo(int k,int hash_key) {
             // cnt_cache = 0 ;
         }
     } else if ( k == nbRemT) {
-        // cnt_cache++ ;
         tbHashElement[hash_key].cnt ++ ;
-    //    cnt += cnt_cache ;
         cnt ++ ;
-        // printf(" C(%d)+%lld->%lld ",hash_key,tbHashElement[hash_key].cnt,cnt) ;
         return ;
     }
     const typeRemCov pa = remT_bt[k][0]; const typeRemCov  pb = remT_bt[k][1]; const typeRemCov  pc = remT_bt[k][2];
