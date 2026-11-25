@@ -79,15 +79,18 @@ static typeRemCov tidx[8][8][8];//  tableau des index [0,56[ des triplets ordonn
 static typeRemCov tp[nbTriplets][3]; // liste des index de paires associées au triplet pid[a][b], pid[a][c], pid[b][c]
 /* ------------------------------------------------ backtracking */
 
+#define MEMO_BITS 20
+#define MEMO_LEVEL 12
+static u64 hashKey(hashCov key) {
+    __uint128_t hash = ( (((__uint128_t)key) * 0x9E3779B97F4A7C15)& 0xFFFFFFFFFFFFFFFF ) >> (64 - MEMO_BITS)  ;
+    return (hashCov) hash ;
+}
 
+typedef struct {
+    hashCov key ;
+    u64 cnt ;
 
-static const hashCov pow3[nbPairs] = {
-    1 ,3 ,9 ,27 ,81 ,243 ,729 ,2187 ,6561 ,19683 ,59049 ,177147 ,531441 ,1594323
-    ,4782969 ,14348907 ,43046721 ,129140163 ,387420489 ,1162261467 ,3486784401
-    ,10460353203 ,31381059609 ,94143178827 ,282429536481 ,847288609443 ,2541865828329 ,7625597484987
-} ;
-
-
+} hash_element;
 
 remT_Type * get_remT(remT_Type * remT) {
     static remT_Type * initRemT = NULL ;
@@ -99,7 +102,10 @@ remT_Type * get_remT(remT_Type * remT) {
     }
 }
 
+hash_element *tbHashElement = NULL ;
 static void bt(int k) ;
+
+static void bt_memo(int k,int32_t hash_key );
 
 int main(int argc, char **argv){
     const clock_t c0 = clock();
@@ -278,6 +284,8 @@ int compute_key_tb_diff (key_tb * tb_elem) {
 }
 
 static u64 cnt ;
+// static u64 cnt_cache ;
+// static uint32_t has_key = 0 ;
 key_tb compact_key(const Stage *ST);
 
 /*
@@ -440,6 +448,7 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,all_key_tb all_tb
     print_info(fp,all_tb);
     printf(" fichier %s, deja faits : %d\n", fname, begin_jid);
 
+    tbHashElement = calloc ((1 << MEMO_BITS) , sizeof(tbHashElement[0]));
     int nh_period = all_tb.ketb.nbKey / 100 ;
     nh_period -= (nh_period % 10000) ;
     int nh= 0 ;
@@ -451,13 +460,25 @@ void compute_jobs( const char *fileName,const typeRemCov *rem0,all_key_tb all_tb
     for (; nh < all_tb.ketb.nbKey ; np++, nh++) {
         hashCov key = all_tb.ketb.tb[nh].key ;
         keyToCov(key,cov);
-        // memcpy(cov,ktb.tb[nh]., sizeof(cov));
         for (typeRemCov p =0; p< nbPairs;  p++) {
             rem_cov[p] = (typeRemCov)(cov[p] + rem0[p]) ;
         }
+        // has_key = 0 ;
         cnt = 0;
+        // cnt_cache = 0 ;
+
         bt(0);
-        u64 T =  cnt ;
+        u64 T ;
+        /*if (hash_key) {
+            T = cnt+tbHashElement[hash_key].cnt ;
+        } else */
+        {
+         //   T = cnt+cnt_cache ;
+            T = cnt /* +cnt_cache */ ;
+         //if (nh < 30) printf("%d->%lld \n",nh,cnt);
+         // else exit(8) ;
+        }
+
         Total +=  all_tb.ketb.tb[nh].weight * T;
         if (np == nh_period ) {
             printf("%lds %d->%lld\n",(long)(time(NULL) - t0),nh,Total); fflush(stdout);
@@ -489,21 +510,85 @@ static void bt(const int k)
         memcpy(&remT_bt,get_remT(NULL),sizeof(remT_Type)) ;
         return ;
     }
-    if (k == nbRemT) { cnt++; return ; }
+    if (k == nbRemT) {
+        if (MEMO_LEVEL < nbRemT) {
+            printf("Error for level %d over %s must be bt_memo()\n") ;
+            exit (4);
+        }
+        cnt++;
+        return ;
+    }
     const typeRemCov pa = remT_bt[k][0]; const typeRemCov  pb = remT_bt[k][1]; const typeRemCov  pc = remT_bt[k][2];
     if (rem_cov[pa] >= 2 && rem_cov[pb] >= 2 &&  rem_cov[pc] >= 2) {
         rem_cov[pa]-- ; rem_cov[pb]-- ; rem_cov[pc]-- ;
         if (cov[pa] < 2 && rem_cov[pb] >= 2 && rem_cov[pc] >= 2) { // pas encore de double attribution
-                cov[pa]++;rem_cov[pa]++; bt(k + 1); cov[pa]--;rem_cov[pa]--;
+                cov[pa]++;rem_cov[pa]++;
+                if (k== MEMO_LEVEL-1) {
+                    bt_memo(k + 1,0);
+                } else {
+                    bt(k + 1);
+                }
+                cov[pa]--;rem_cov[pa]--;
         }
          if (cov[pb] < 2 && rem_cov[pa] >= 2 && rem_cov[pc] >= 2) { // pas encore de double attribution
-            cov[pb]++;rem_cov[pb]++; bt(k + 1); cov[pb]--;rem_cov[pb]--;
+            cov[pb]++;rem_cov[pb]++;
+             if (k== MEMO_LEVEL-1) {
+                 bt_memo(k + 1,0);
+             } else {
+                 bt(k + 1);
+             }
+             cov[pb]--;rem_cov[pb]--;
         }
         if (cov[pc] < 2 && rem_cov[pa] >= 2 && rem_cov[pb] >= 2) { // pas encore de double attribution
-            cov[pc]++;rem_cov[pc]++; bt(k + 1); cov[pc]--;rem_cov[pc]--;
+            cov[pc]++;rem_cov[pc]++;
+            if (k== MEMO_LEVEL-1) {
+                bt_memo(k + 1,0);
+            } else {
+                bt(k + 1);
+            }
+            cov[pc]--;rem_cov[pc]--;
         }
         rem_cov[pa]++ ; rem_cov[pb]++ ; rem_cov[pc]++ ;
     }
+}
+
+
+void bt_memo(int k,int hash_key) {
+    if ( k== MEMO_LEVEL) {
+        hashCov key = covToKey(cov);
+        hash_key = hashKey(key) ;
+        if (tbHashElement[hash_key].key == key) {
+            cnt += tbHashElement[hash_key].cnt ;
+            // printf(" R(%d)+%lld->%lld ",hash_key,tbHashElement[hash_key].cnt,cnt) ;
+            return ;
+        } else {
+            tbHashElement[hash_key].key = key ;
+            tbHashElement[hash_key].cnt = 0 ;
+            // cnt_cache = 0 ;
+        }
+    } else if ( k == nbRemT) {
+        // cnt_cache++ ;
+        tbHashElement[hash_key].cnt ++ ;
+    //    cnt += cnt_cache ;
+        cnt ++ ;
+        // printf(" C(%d)+%lld->%lld ",hash_key,tbHashElement[hash_key].cnt,cnt) ;
+        return ;
+    }
+    const typeRemCov pa = remT_bt[k][0]; const typeRemCov  pb = remT_bt[k][1]; const typeRemCov  pc = remT_bt[k][2];
+    if (rem_cov[pa] >= 2 && rem_cov[pb] >= 2 &&  rem_cov[pc] >= 2) {
+        rem_cov[pa]-- ; rem_cov[pb]-- ; rem_cov[pc]-- ;
+        if (cov[pa] < 2 && rem_cov[pb] >= 2 && rem_cov[pc] >= 2) { // pas encore de double attribution
+            cov[pa]++;rem_cov[pa]++; bt_memo(k + 1,hash_key); cov[pa]--;rem_cov[pa]--;
+        }
+        if (cov[pb] < 2 && rem_cov[pa] >= 2 && rem_cov[pc] >= 2) { // pas encore de double attribution
+            cov[pb]++;rem_cov[pb]++; bt_memo(k + 1,hash_key); cov[pb]--;rem_cov[pb]--;
+        }
+        if (cov[pc] < 2 && rem_cov[pa] >= 2 && rem_cov[pb] >= 2) { // pas encore de double attribution
+            cov[pc]++;rem_cov[pc]++; bt_memo(k + 1,hash_key); cov[pc]--;rem_cov[pc]--;
+        }
+        rem_cov[pa]++ ; rem_cov[pb]++ ; rem_cov[pc]++ ;
+    }
+
 }
 /***** END ************************* phase 2 (jobs) *****************************/
 
