@@ -26,7 +26,7 @@ typedef struct {
 
 typedef struct {
     typeRemCov cov[nbPairs];        // pour chaque paire (28) nombre de choix (0,1,2)
-    int64_t weight ;        //ponderation
+    u64 weight ;        //ponderation
 } HashLeaf;
 
 typedef struct {

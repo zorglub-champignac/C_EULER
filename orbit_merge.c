@@ -69,6 +69,8 @@
 
 #include "orbit.h"
 
+#define MEMO_BITS 20
+#define MEMO_LEVEL 12
 
 
 /* ---------------------------------------------------------------- base */
@@ -79,11 +81,9 @@ static typeRemCov tidx[8][8][8];//  tableau des index [0,56[ des triplets ordonn
 static typeRemCov tp[nbTriplets][3]; // liste des index de paires associées au triplet pid[a][b], pid[a][c], pid[b][c]
 /* ------------------------------------------------ backtracking */
 
-#define MEMO_BITS 20
-#define MEMO_LEVEL 12
-static u64 hashKey(hashCov key) {
+static uint32_t hashKey(hashCov key) {
     __uint128_t hash = ( (((__uint128_t)key) * 0x9E3779B97F4A7C15)& 0xFFFFFFFFFFFFFFFF ) >> (64 - MEMO_BITS)  ;
-    return (hashCov) hash ;
+    return (uint32_t) hash ;
 }
 
 typedef struct {
@@ -105,7 +105,7 @@ remT_Type * get_remT(remT_Type * remT) {
 hash_element *tbHashElement = NULL ;
 static void bt(int k) ;
 
-static void bt_memo(int k,int32_t hash_key );
+static void bt_memo(int k,uint32_t hash_key );
 
 int main(int argc, char **argv){
     const clock_t c0 = clock();
@@ -140,9 +140,10 @@ int main(int argc, char **argv){
         check_sum(all_tb.ketb.nbKey,argv[2] ) ;
         return 0;
     }
-    char fname[64];
+    char fname[100];
     if ( argc > 1) { strcpy(fname, argv[1]); } else {
-        sprintf(fname, "C%d_S%dxS%d_tri%dX%d.txt",CIBLE,PERM1,G_PERM2,MAXT,SIZE_W2);
+        sprintf(fname, "C%d_S%dxS%d_tri%dX%d_cache%dbL%d.txt",CIBLE,PERM1,G_PERM2,MAXT,SIZE_W2,
+            MEMO_BITS,MEMO_LEVEL);
     }
     // *********  phase 2 **************************
     // developpement des feuilles par developpement recursif sur les paires de bt()
@@ -309,13 +310,13 @@ int keyToCov(hashCov key,typeRemCov *cov_) {
 */
 hashCov covToKey(const typeRemCov *cov_) {
     hashCov hC = 0 ;
-    for (int i=0;i<nbPairs;i++) {hC +=  ((u64)cov_[i] & 3) << (2*i) ;}
+    for (int i=0;i<nbPairs;i++) {hC +=  ((hashCov)cov_[i] & 3) << (2*i) ;}
     return hC ;
 }
 void keyToCov(hashCov key,typeRemCov *cov_) {
     memset(cov_,0,nbPairs);
     for (int i=0;i<nbPairs;i++) {
-        cov_[i] = (((u64)key) >> (2*i)) & 3 ;
+        cov_[i] = (typeRemCov)((((hashCov)key) >> (2*i)) & 3) ;
     }
 //    return (key ? 1:0) ; // doit etre null
 }
@@ -335,7 +336,7 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
     int indexConflicts = 0 ;
     if ( nbKeyAlloc > MAX_HASH_ALLOC ) {
         nbKeyAlloc = MAX_HASH_ALLOC ;
-        indexConflicts = nbKeyAlloc ;
+        indexConflicts = (int)nbKeyAlloc ;
         overbook = 1 ;
         nbKeyAlloc +=  MAX_CONFLITS ; // rajout de la zone pour gerer les conflits
     }
@@ -373,7 +374,7 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
             all_key.ketb.tb[index].weight += ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
         }
     }
-    all_key.ketb.nbKey = nbKeyAlloc ;
+    all_key.ketb.nbKey = (int)nbKeyAlloc ;
     compute_key_tb_diff(&all_key.ketb) ;
     all_key.ketb.tb = realloc(all_key.ketb.tb,all_key.ketb.nbKey*sizeof(all_key.ketb.tb[0])) ;
     printf("%lds Total reduction %d->%d \n",(long)(time(NULL) - t0),ketb1.nbKey*ketb2.nbKey,all_key.ketb.nbKey);
@@ -501,7 +502,7 @@ static void bt(const int k)
     }
     if (k == nbRemT) {
         if (MEMO_LEVEL < nbRemT) {
-            printf("Error for level %d over %s must be bt_memo()\n") ;
+            printf("Error for level %d over %d must be bt_memo()\n",nbRemT,MEMO_LEVEL) ;
             exit (4);
         }
         cnt++;
@@ -542,7 +543,7 @@ static void bt(const int k)
 }
 
 
-void bt_memo(int k,int hash_key) {
+void bt_memo(int k,uint32_t hash_key) {
     if ( k== MEMO_LEVEL) {
         hashCov key = covToKey(cov);
         hash_key = hashKey(key) ;
@@ -596,7 +597,7 @@ static void print_info(FILE * fout,all_key_tb all_tb) {
             ,all_tb.ST1->nleaf,all_tb.ktb1.nbKey,all_tb.ST2->nleaf,all_tb.ktb2.nbKey
             ,all_tb.ktb1.nbKey,all_tb.ktb2.nbKey,(int64_t)all_tb.ktb1.nbKey * all_tb.ktb2.nbKey,MAX_HASH_ALLOC) ;
 
-    fprintf(fout,"# Nombre de developpement (apres le merge) = %ld \n",
+    fprintf(fout,"# Nombre de developpement (apres le merge) = %d \n",
        all_tb.ketb.nbKey);
     double wAssign = ((double)all_tb.ST1->wAssign)*all_tb.ST2->wAssign ;
     fprintf(fout,"# Gain nominal sur les %.0f configurations de depart : %.1f\n",
@@ -608,7 +609,7 @@ static void print_info(FILE * fout,all_key_tb all_tb) {
 void check_sum(long nb_key,char *name_fp ) {
     unsigned long long total = 0;
     long  missing = 0;
-    printf("CHECKSUM nb_key=%d\n", nb_key);
+    printf("CHECKSUM nb_key=%ld\n", nb_key);
     FILE *fp = fopen(name_fp, "r");
     long jid;  u64 T;
     if (!fp) {
