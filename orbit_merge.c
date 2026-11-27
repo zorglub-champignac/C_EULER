@@ -72,10 +72,10 @@
 #define MEMO_BITS 20
 #define MEMO_LEVEL 12
 
-#define MERGE_BITS 24
+#define MERGE_BITS 18
 // 0x2000000=33 554 432
 #define MASK_MERGE ((1 << MERGE_BITS)-1)
-#define MAX_CONFLITS 6000000
+#define MAX_CONFLITS 10000000
 
 clock_t c0 ;
 /* ---------------------------------------------------------------- base */
@@ -384,7 +384,8 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
         for (int i2=0; i2<ketb2.nbKey; i2++) {
             typeRemCov cov_[nbPairs] ;
             hashCov hC = h1 + ketb2.tb[i2].key ;
-            if (hC & ((hC & 0xAAAAAAAAAAAAAAAA )>> 1 ) ) {
+            hashCov hCb = hC & ((hC & 0xAAAAAAAAAAAAAAAA )>> 1 ) ;
+            if (hCb ) {
                 bad1++ ; continue ;
             }
 
@@ -392,21 +393,9 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
                 bad2++ ; continue ;
             }
 
-            if (((hC & 0xAAAAAAAAAAAAAAAA )>> 1 ) & mask_rem0_ask1or2 != mask_rem0_ask1or2 ) {
+            if (hCb & mask_rem0_ask1or2 != mask_rem0_ask1or2 ) {
                 bad2++ ; continue ;
             }
-            /*
-            keyToCov(hC,cov_) ;
-            int ok = 1;
-            for (int p=0;p<nbPairs;p++) {
-//                if (cov_[p] > 2 || cov_[p] + rem0[p] < 2 ) { ok= 0; break ; }
-                if ( cov_[p] + rem0[p] < 2 ) { ok= 0; break ; }
-            //    rem_cov[p] = (typeRemCov)(cov_[p] + rem0[p]) ;
-            }
-            if (!ok) {
-                bad2 ++ ;continue ;
-            }
-            */
             uint32_t key_hC = hashKeyMerge(hC);
             if (all_key.ketb.tb[key_hC].key == 0) {
                 all_key.ketb.tb[key_hC].key = hC ;
