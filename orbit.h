@@ -10,10 +10,7 @@ typedef unsigned long long u64;
 
 #define nbPairs 28
 #define nbTriplets 56
-// 0x2000000=33 554 432
 
-#define MAX_HASH_ALLOC 0x2000000
-#define MAX_CONFLITS 60000000
 
 typedef typeRemCov remT_Type[nbRemT][3];
 typedef int64_t hashCov ;
