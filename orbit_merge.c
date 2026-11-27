@@ -283,15 +283,18 @@ int compute_key_tb_diff (key_tb * tb_elem) {
     qsort(tb_elem->tb,tb_elem->nbKey,sizeof(k_element),cmp_k_element) ;
     printf("qsort: %.1f \n",(double)(clock() - c0) / CLOCKS_PER_SEC);
 
-    // hashCov ant_key = tb_elem->tb[0].key ;
+    /* // inutile si insertion directe, pas d'insertion de zéro
     int nbZero =0 ;
     for (nbZero=0;nbZero<tb_elem->nbKey;nbZero++) {
         if (tb_elem->tb[nbZero].key) break ;
     }
+    */
     int nbElemDif = 1 ;
-    hashCov ant_key = tb_elem->tb[nbZero].key ;
-    tb_elem->tb[0] = tb_elem->tb[nbZero] ;
-    for (int i=nbZero+1;i< tb_elem->nbKey ;i++) {
+    // hashCov ant_key = tb_elem->tb[nbZero].key ;
+    //tb_elem->tb[0] = tb_elem->tb[nbZero] ;
+    hashCov ant_key = tb_elem->tb[0].key ;
+//    for (int i=nbZero+1;i< tb_elem->nbKey ;i++) {
+    for (int i=1;i< tb_elem->nbKey ;i++) {
         if ( tb_elem->tb[i].key != ant_key)  {
             if (nbElemDif != i) {
                tb_elem->tb[nbElemDif++] = tb_elem->tb[i] ;
@@ -359,7 +362,8 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
     all_key.ktb1 = ketb1 ;
     all_key.ktb2 = ketb2 ;
 //    int64_t nbKeyAlloc = (int64_t)ketb1.nbKey * ketb2.nbKey ;
-    int64_t nbKeyAlloc = (1<< MERGE_BITS) ;
+    //int64_t nbKeyAlloc = (1<< MERGE_BITS) ;
+    int64_t nbKeyAlloc = 0 ;
     // int overbook = 0 ;
     int indexConflicts = 0 ;
     //if ( nbKeyAlloc > MAX_HASH_ALLOC )
@@ -396,6 +400,7 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
             if (hCb & mask_rem0_ask1or2 != mask_rem0_ask1or2 ) {
                 bad2++ ; continue ;
             }
+            /*
             uint32_t key_hC = hashKeyMerge(hC);
             if (all_key.ketb.tb[key_hC].key == 0) {
                 all_key.ketb.tb[key_hC].key = hC ;
@@ -403,7 +408,8 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
             }else if  (all_key.ketb.tb[key_hC].key ==hC ) {
                 all_key.ketb.tb[key_hC].weight +=  ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
                 nb_merge++ ;
-            } else {
+            } else */
+            {
                 int index = indexConflicts + nb_conflits++ ;
                 if (nb_conflits >= MAX_CONFLITS) {
                     fprintf(stderr,"Limite de %d conflits atteinte. %d/%ld id faits \n "
@@ -416,7 +422,8 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
         }
     }
 //    all_key.ketb.nbKey = (int)nbKeyAlloc ;
-    all_key.ketb.nbKey = (1 << MERGE_BITS) + nb_conflits;
+//    all_key.ketb.nbKey = (1 << MERGE_BITS) + nb_conflits;
+    all_key.ketb.nbKey =  nb_conflits;
     printf("Insert in table : %.1f \n",(double)(clock() - c0) / CLOCKS_PER_SEC);
 
     compute_key_tb_diff(&all_key.ketb) ;
