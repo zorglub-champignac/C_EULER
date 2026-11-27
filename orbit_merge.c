@@ -283,17 +283,8 @@ int compute_key_tb_diff (key_tb * tb_elem) {
     qsort(tb_elem->tb,tb_elem->nbKey,sizeof(k_element),cmp_k_element) ;
     printf("qsort: %.1f \n",(double)(clock() - c0) / CLOCKS_PER_SEC);
 
-    /* // inutile si insertion directe, pas d'insertion de zéro
-    int nbZero =0 ;
-    for (nbZero=0;nbZero<tb_elem->nbKey;nbZero++) {
-        if (tb_elem->tb[nbZero].key) break ;
-    }
-    */
     int nbElemDif = 1 ;
-    // hashCov ant_key = tb_elem->tb[nbZero].key ;
-    //tb_elem->tb[0] = tb_elem->tb[nbZero] ;
     hashCov ant_key = tb_elem->tb[0].key ;
-//    for (int i=nbZero+1;i< tb_elem->nbKey ;i++) {
     for (int i=1;i< tb_elem->nbKey ;i++) {
         if ( tb_elem->tb[i].key != ant_key)  {
             if (nbElemDif != i) {
@@ -313,29 +304,7 @@ int compute_key_tb_diff (key_tb * tb_elem) {
 }
 
 static u64 cnt ;
-// static u64 cnt_cache ;
-// static uint32_t has_key = 0 ;
 key_tb compact_key(const Stage *ST);
-
-/*
-hashCov covToKey(const typeRemCov *cov_) {
-    hashCov hC = 0 ;
-    for (int i=0;i<nbPairs;i++) {hC += pow3[i] * cov_[i] ;}
-    return hC ;
-}
-int keyToCov(hashCov key,typeRemCov *cov_) {
-    memset(cov_,0,nbPairs);
-    for (int i=nbPairs-1; i>=0; i--) {
-        if (key >= pow3[i]) {
-            cov_[i]++ ; key -= pow3[i] ;
-            if (key >= pow3[i]) {
-                cov_[i]++ ; key -= pow3[i] ;
-            }
-        }
-    }
-    return (key ? 1:0) ; // doit etre null
-}
-*/
 hashCov covToKey(const typeRemCov *cov_) {
     hashCov hC = 0 ;
     for (int i=0;i<nbPairs;i++) {hC +=  ((hashCov)cov_[i] & 3) << (2*i) ;}
@@ -346,7 +315,6 @@ void keyToCov(hashCov key,typeRemCov *cov_) {
     for (int i=0;i<nbPairs;i++) {
         cov_[i] = (typeRemCov)((((hashCov)key) >> (2*i)) & 3) ;
     }
-//    return (key ? 1:0) ; // doit etre null
 }
 
 // time_t t0 ;
@@ -361,19 +329,8 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
     all_key.ST2 = ST2 ;
     all_key.ktb1 = ketb1 ;
     all_key.ktb2 = ketb2 ;
-//    int64_t nbKeyAlloc = (int64_t)ketb1.nbKey * ketb2.nbKey ;
-    //int64_t nbKeyAlloc = (1<< MERGE_BITS) ;
-    int64_t nbKeyAlloc = 0 ;
-    // int overbook = 0 ;
-    int indexConflicts = 0 ;
-    //if ( nbKeyAlloc > MAX_HASH_ALLOC )
-        {
-        // nbKeyAlloc = MAX_HASH_ALLOC ;
-        indexConflicts = (int)nbKeyAlloc ;
-        // overbook = 1 ;
-        nbKeyAlloc +=  MAX_CONFLITS ; // rajout de la zone pour gerer les conflits
-    }
-    all_key.ketb.tb = calloc(nbKeyAlloc,sizeof(all_key.ketb.tb[0]));
+    int64_t nbKeyAlloc =  MAX_CONFLITS ; // rajout de la zone pour gerer les conflits
+    all_key.ketb.tb = malloc(nbKeyAlloc*sizeof(all_key.ketb.tb[0]));
     int nb_conflits = 0 ;
     int nb_merge = 0 ;
     int bad1 = 0, bad2 = 0 ;
@@ -400,29 +357,18 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
             if (hCb & mask_rem0_ask1or2 != mask_rem0_ask1or2 ) {
                 bad2++ ; continue ;
             }
-            /*
-            uint32_t key_hC = hashKeyMerge(hC);
-            if (all_key.ketb.tb[key_hC].key == 0) {
-                all_key.ketb.tb[key_hC].key = hC ;
-                all_key.ketb.tb[key_hC].weight = ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
-            }else if  (all_key.ketb.tb[key_hC].key ==hC ) {
-                all_key.ketb.tb[key_hC].weight +=  ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
-                nb_merge++ ;
-            } else */
-            {
-                int index = indexConflicts + nb_conflits++ ;
-                if (nb_conflits >= MAX_CONFLITS) {
-                    fprintf(stderr,"Limite de %d conflits atteinte. %d/%ld id faits \n "
+
+            int index = nb_conflits++ ;
+            if (nb_conflits >= MAX_CONFLITS) {
+                fprintf(stderr,"Limite de %d conflits atteinte. %d/%ld id faits \n "
                             ,MAX_CONFLITS,i1,ST1->nleaf) ;
-                    exit(5);
-                }
-                all_key.ketb.tb[index].key = hC ;
-                all_key.ketb.tb[index].weight = ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
+                exit(5);
             }
+            all_key.ketb.tb[index].key = hC ;
+            all_key.ketb.tb[index].weight = ketb1.tb[i1].weight * ketb2.tb[i2].weight ;
+
         }
     }
-//    all_key.ketb.nbKey = (int)nbKeyAlloc ;
-//    all_key.ketb.nbKey = (1 << MERGE_BITS) + nb_conflits;
     all_key.ketb.nbKey =  nb_conflits;
     printf("Insert in table : %.1f \n",(double)(clock() - c0) / CLOCKS_PER_SEC);
 
@@ -454,18 +400,12 @@ key_tb compact_key(const Stage *ST) {
         }
         hashCov hC = 0 ;
         hC = covToKey(cov1);
-        /*
-        for (int p = 0; p < nbPairs; p++) {
-            hC += pow3[p] * cov1[p] ;
-        }
-        */
         ketb.tb[id].key= hC ;
         ketb.tb[id].weight= r->weight ;
     }
     ketb.nbKey = ST->nleaf ;
     ketb.nbKey =  compute_key_tb_diff(&ketb) ;
     ketb.tb = realloc(ketb.tb,ketb.nbKey*sizeof(ketb.tb[0])); ;
-    // printf("Size ketb=%d\n",ketb.nbKey) ;
     return ketb ;
 }
 
