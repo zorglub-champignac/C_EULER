@@ -64,7 +64,7 @@
 #include <time.h>
 
 
-#define CIBLE 20
+#define CIBLE 5
 #include "cible.h"
 
 #include "orbit.h"
@@ -75,7 +75,7 @@
 #define MERGE_BITS 18
 // 0x2000000=33 554 432
 #define MASK_MERGE ((1 << MERGE_BITS)-1)
-#define MAX_CONFLITS 10000000
+#define MAX_CONFLITS 20000000
 
 clock_t c0 ;
 /* ---------------------------------------------------------------- base */
@@ -333,13 +333,15 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
     all_key.ketb.tb = malloc(nbKeyAlloc*sizeof(all_key.ketb.tb[0]));
     int nb_conflits = 0 ;
     int nb_merge = 0 ;
-    int bad1 = 0, bad2 = 0 ;
+    int bad1 = 0, bad2a = 0 ,bad2b ;
     hashCov mask_rem0_ask2 = 0 ;
     hashCov mask_rem0_ask1or2 = 0 ;
     for (int i =0;i<nbPairs;i++) {
-        if (rem0[i] == 0) mask_rem0_ask2 |= 1 << (2*i+1) ;
-        if (rem0[i] == 1 || rem0[i] == 0) mask_rem0_ask1or2 |= 1 << (2*i) ;
+        if (rem0[i] == 0) mask_rem0_ask2 |= 1LL << (2*i+1) ;
+        if (rem0[i] == 1 /* || rem0[i] == 0*/ ) mask_rem0_ask1or2 |= 1LL << (2*i) ;
     }
+    for (int i =0;i<nbPairs;i++) { printf("%d ",rem0[i]); } printf("\n");
+    printf("%llx\n",mask_rem0_ask2);
     for (int i1=0; i1<ketb1.nbKey; i1++) {
         hashCov h1 =  ketb1.tb[i1].key ;
         for (int i2=0; i2<ketb2.nbKey; i2++) {
@@ -351,11 +353,11 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
             }
 
             if ((hC & mask_rem0_ask2) != mask_rem0_ask2 ) {
-                bad2++ ; continue ;
+                bad2a++ ; continue ;
             }
-
-            if (hCb & mask_rem0_ask1or2 != mask_rem0_ask1or2 ) {
-                bad2++ ; continue ;
+            hashCov hCor = (hC & 0x5555555555555555 )| ((hC & 0xAAAAAAAAAAAAAAAA )>> 1 ) ;
+            if (hCor & mask_rem0_ask1or2 != mask_rem0_ask1or2 ) {
+                bad2b++ ; continue ;
             }
 
             int index = nb_conflits++ ;
@@ -374,8 +376,8 @@ static all_key_tb compute_merge_dev(const typeRemCov *rem0,const Stage *ST1,cons
 
     compute_key_tb_diff(&all_key.ketb) ;
     all_key.ketb.tb = realloc(all_key.ketb.tb,all_key.ketb.nbKey*sizeof(all_key.ketb.tb[0])) ;
-    printf("%.1fs Total reduction %d->%d Conf=%d Merge=%d bad1=%d bad2 = %d\n"
-        ,(double)(clock() - c0) / CLOCKS_PER_SEC,ketb1.nbKey*ketb2.nbKey,all_key.ketb.nbKey,nb_conflits,nb_merge,bad1,bad2) ;
+    printf("%.1fs Total reduction %d->%d Conf=%d Merge=%d bad1=%d bad2a =%d bad2b=%d\n"
+        ,(double)(clock() - c0) / CLOCKS_PER_SEC,ketb1.nbKey*ketb2.nbKey,all_key.ketb.nbKey,nb_conflits,nb_merge,bad1,bad2a,bad2b) ;
     HashLeaf * tbKeyLeaf = calloc (all_key.ketb.nbKey, sizeof(HashLeaf));
     int nbKeyLeaf = 0;
     for (int id=0;id<all_key.ketb.nbKey;id++) {
